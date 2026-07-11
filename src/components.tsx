@@ -10,7 +10,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { locationLabel, money, shorten, timeLabel } from './format';
-import { CITY_NAMES } from './locations';
+import { CITY_NAMES, filterAreasFor } from './locations';
 import { colors, radius } from './theme';
 import { Job, JobStatus } from './types';
 
@@ -123,13 +123,18 @@ export function ChipRow({
 export function CityRow({
   value,
   onChange,
+  area,
+  onArea,
   onNearMe,
 }: {
   value: string;
   onChange: (city: string) => void;
+  area: string;
+  onArea: (area: string) => void;
   onNearMe: () => void;
 }) {
   const options = ['All Pakistan', ...CITY_NAMES];
+  const areas = value === 'All' ? [] : filterAreasFor(value);
   return (
     <View>
       <ChipRow
@@ -137,6 +142,13 @@ export function CityRow({
         selected={value === 'All' ? 'All Pakistan' : value}
         onSelect={(picked) => onChange(picked === 'All Pakistan' ? 'All' : picked)}
       />
+      {areas.length > 0 && (
+        <ChipRow
+          options={['All areas', ...areas]}
+          selected={area === 'All' ? 'All areas' : area}
+          onSelect={(picked) => onArea(picked === 'All areas' ? 'All' : picked)}
+        />
+      )}
       <Btn label="Near me" onPress={onNearMe} outline small style={styles.nearMe} />
     </View>
   );

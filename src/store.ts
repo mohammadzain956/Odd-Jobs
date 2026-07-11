@@ -12,8 +12,11 @@ export function makeId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
 }
 
-export function matchesFilters(job: Job, category: string, query: string, city: string): boolean {
+export function matchesFilters(job: Job, category: string, query: string, city: string, area: string): boolean {
   if (city !== 'All' && job.city !== city) {
+    return false;
+  }
+  if (area !== 'All' && job.location !== area) {
     return false;
   }
   if (category !== 'All' && job.category !== category) {

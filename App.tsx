@@ -53,6 +53,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [category, setCategory] = useState('All');
   const [cityFilter, setCityFilter] = useState('All');
+  const [areaFilter, setAreaFilter] = useState('All');
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState('');
   const [editingId, setEditingId] = useState('');
@@ -191,11 +192,16 @@ export default function App() {
     notify('Thanks. Our team will review this post.');
   };
 
+  const changeCityFilter = (city: string) => {
+    setCityFilter(city);
+    setAreaFilter('All');
+  };
+
   const handleNearMe = async () => {
     notify('Finding your city...');
     const city = await detectCity();
     if (city) {
-      setCityFilter(city);
+      changeCityFilter(city);
       notify(`Showing jobs in ${city}`);
     } else {
       notify('Could not detect your city here. Pick it from the list.');
@@ -271,7 +277,17 @@ export default function App() {
               <Text style={styles.brand}>Odd Jobs</Text>
               <Text style={styles.subtitle}>{SUBTITLES[screen]}</Text>
             </View>
-            <Pill label={cityFilter === 'All' ? 'Pakistan' : cityFilter} bg={colors.softBrand} color={colors.brand} />
+            <Pill
+              label={
+                cityFilter === 'All'
+                  ? 'Pakistan'
+                  : areaFilter === 'All'
+                    ? cityFilter
+                    : `${areaFilter}, ${cityFilter}`
+              }
+              bg={colors.softBrand}
+              color={colors.brand}
+            />
           </View>
 
           {screen !== 'detail' && screen !== 'chat' && (
@@ -297,7 +313,9 @@ export default function App() {
               category={category}
               onCategory={setCategory}
               city={cityFilter}
-              onCity={setCityFilter}
+              onCity={changeCityFilter}
+              area={areaFilter}
+              onArea={setAreaFilter}
               onNearMe={() => void handleNearMe()}
               query={query}
               onQuery={setQuery}
@@ -320,7 +338,9 @@ export default function App() {
               category={category}
               onCategory={setCategory}
               city={cityFilter}
-              onCity={setCityFilter}
+              onCity={changeCityFilter}
+              area={areaFilter}
+              onArea={setAreaFilter}
               onNearMe={() => void handleNearMe()}
               onOpen={openDetail}
               onAccept={acceptJob}

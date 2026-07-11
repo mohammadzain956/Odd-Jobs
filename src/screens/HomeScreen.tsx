@@ -10,6 +10,8 @@ type Props = {
   onCategory: (category: string) => void;
   city: string;
   onCity: (city: string) => void;
+  area: string;
+  onArea: (area: string) => void;
   onNearMe: () => void;
   query: string;
   onQuery: (query: string) => void;
@@ -24,6 +26,8 @@ export default function HomeScreen({
   onCategory,
   city,
   onCity,
+  area,
+  onArea,
   onNearMe,
   query,
   onQuery,
@@ -31,7 +35,7 @@ export default function HomeScreen({
   onGoPost,
   unread,
 }: Props) {
-  const visible = jobs.filter((job) => matchesFilters(job, category, query, city));
+  const visible = jobs.filter((job) => matchesFilters(job, category, query, city, area));
   const featured = visible.filter((job) => job.featured);
   const openCount = jobs.filter((job) => job.status === 'OPEN').length;
   const acceptedCount = jobs.filter((job) => job.status === 'ACCEPTED' || job.status === 'IN_PROGRESS').length;
@@ -48,7 +52,7 @@ export default function HomeScreen({
         <Btn label="Post a job request" onPress={onGoPost} color={colors.action} style={styles.cta} />
       </Card>
 
-      <CityRow value={city} onChange={onCity} onNearMe={onNearMe} />
+      <CityRow value={city} onChange={onCity} area={area} onArea={onArea} onNearMe={onNearMe} />
 
       <ChipRow options={CATEGORY_FILTERS} selected={category} onSelect={onCategory} />
 

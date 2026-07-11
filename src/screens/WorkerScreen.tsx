@@ -11,6 +11,8 @@ type Props = {
   onCategory: (category: string) => void;
   city: string;
   onCity: (city: string) => void;
+  area: string;
+  onArea: (area: string) => void;
   onNearMe: () => void;
   onOpen: (id: string) => void;
   onAccept: (id: string) => void;
@@ -23,13 +25,15 @@ export default function WorkerScreen({
   onCategory,
   city,
   onCity,
+  area,
+  onArea,
   onNearMe,
   onOpen,
   onAccept,
   unread,
 }: Props) {
   const openJobs = jobs.filter((job) => job.status === 'OPEN');
-  const openVisible = openJobs.filter((job) => matchesFilters(job, category, '', city));
+  const openVisible = openJobs.filter((job) => matchesFilters(job, category, '', city, area));
   const acceptedJobs = jobs.filter((job) => job.status === 'ACCEPTED' || job.status === 'IN_PROGRESS');
   const totalOpenPay = openJobs.reduce((sum, job) => sum + job.pay, 0);
 
@@ -48,7 +52,7 @@ export default function WorkerScreen({
         </Text>
       </Card>
 
-      <CityRow value={city} onChange={onCity} onNearMe={onNearMe} />
+      <CityRow value={city} onChange={onCity} area={area} onArea={onArea} onNearMe={onNearMe} />
 
       <ChipRow options={CATEGORY_FILTERS} selected={category} onSelect={onCategory} />
 
