@@ -9,7 +9,8 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import { money, shorten, timeLabel } from './format';
+import { locationLabel, money, shorten, timeLabel } from './format';
+import { CITY_NAMES } from './locations';
 import { colors, radius } from './theme';
 import { Job, JobStatus } from './types';
 
@@ -119,6 +120,28 @@ export function ChipRow({
   );
 }
 
+export function CityRow({
+  value,
+  onChange,
+  onNearMe,
+}: {
+  value: string;
+  onChange: (city: string) => void;
+  onNearMe: () => void;
+}) {
+  const options = ['All Pakistan', ...CITY_NAMES];
+  return (
+    <View>
+      <ChipRow
+        options={options}
+        selected={value === 'All' ? 'All Pakistan' : value}
+        onSelect={(picked) => onChange(picked === 'All Pakistan' ? 'All' : picked)}
+      />
+      <Btn label="Near me" onPress={onNearMe} outline small style={styles.nearMe} />
+    </View>
+  );
+}
+
 export function SectionTitle({ children }: { children: string }) {
   return <Text style={styles.sectionTitle}>{children}</Text>;
 }
@@ -157,7 +180,7 @@ export function JobCard({
         <View style={styles.jobTop}>
           <View style={styles.jobTitleBlock}>
             <Text style={styles.jobTitle}>{job.title}</Text>
-            <Text style={styles.jobMeta}>{`${job.category} - ${job.location} - ${timeLabel(job.createdAt)}`}</Text>
+            <Text style={styles.jobMeta}>{`${job.category} - ${locationLabel(job)} - ${timeLabel(job.createdAt)}`}</Text>
           </View>
           <Pill label={money(job.pay)} bg={colors.softBrand} color={colors.brand} />
         </View>
@@ -258,6 +281,11 @@ const styles = StyleSheet.create({
   },
   chipRow: {
     marginTop: 16,
+  },
+  nearMe: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    minWidth: 110,
   },
   chip: {
     borderRadius: radius,

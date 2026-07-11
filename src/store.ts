@@ -12,7 +12,10 @@ export function makeId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
 }
 
-export function matchesFilters(job: Job, category: string, query: string): boolean {
+export function matchesFilters(job: Job, category: string, query: string, city: string): boolean {
+  if (city !== 'All' && job.city !== city) {
+    return false;
+  }
   if (category !== 'All' && job.category !== category) {
     return false;
   }
@@ -20,7 +23,7 @@ export function matchesFilters(job: Job, category: string, query: string): boole
   if (!trimmed) {
     return true;
   }
-  return `${job.title} ${job.details} ${job.category} ${job.location}`.toLowerCase().includes(trimmed);
+  return `${job.title} ${job.details} ${job.category} ${job.location} ${job.city}`.toLowerCase().includes(trimmed);
 }
 
 export async function loadJobs(): Promise<Job[]> {
@@ -86,6 +89,7 @@ export async function updateJobFields(id: string, draft: JobDraft): Promise<void
       title: draft.title,
       details: draft.details,
       location: draft.location,
+      city: draft.city,
       pay: draft.pay,
       category: draft.category,
       urgency: draft.urgency,
@@ -332,7 +336,7 @@ function rowToJob(row: Record<string, unknown>): Job {
     workerName: String(row.worker_name ?? ''),
     featured: Boolean(row.featured),
     photos: Array.isArray(row.photos) ? row.photos.map(String) : [],
-    distance: String(row.distance ?? 'Nearby'),
+    city: String(row.city ?? ''),
     createdAt: row.created_at ? Date.parse(String(row.created_at)) : 0,
     acceptedAt: row.accepted_at ? Date.parse(String(row.accepted_at)) : 0,
     completedAt: row.completed_at ? Date.parse(String(row.completed_at)) : 0,
@@ -348,7 +352,6 @@ function createLocalJob(draft: JobDraft): Job {
     id: makeId(),
     status: 'OPEN',
     workerName: '',
-    distance: 'Nearby',
     createdAt: Date.now(),
     acceptedAt: 0,
     completedAt: 0,
@@ -376,51 +379,50 @@ async function loadLocalJobs(): Promise<Job[]> {
 }
 
 function seedJobs(): Job[] {
-  const samples: Array<[string, string, string, number, string, string, boolean, string]> = [
+  const samples: Array<[string, string, string, string, number, string, string, boolean]> = [
     [
       'Move sofa to second floor',
       'Need two careful helpers to move one sofa and a small table from the garage to an upstairs room.',
-      'DHA Phase 5, Lahore',
+      'DHA',
+      'Lahore',
       4500,
       'Moving',
       'Today',
       true,
-      '2.1 km',
     ],
     [
       'Assemble wardrobe',
       'Flat-pack wardrobe is delivered. Bring a basic drill and help assemble it neatly.',
-      'Gulberg, Lahore',
+      'Gulberg',
+      'Lahore',
       3200,
       'Assembly',
       'This week',
       false,
-      '3.4 km',
     ],
     [
       'Deep clean small office',
       'One-room office needs floor cleaning, dusting, and trash removal before Monday.',
-      'Blue Area, Islamabad',
+      'Blue Area',
+      'Islamabad',
       6000,
       'Cleaning',
       'Flexible',
       true,
-      'Nearby',
     ],
     [
       'Deliver documents',
       'Pick up a sealed envelope and deliver it across town. Delivery window is 2 pm to 5 pm.',
-      'Clifton, Karachi',
+      'Clifton',
+      'Karachi',
       1800,
       'Delivery',
       'Today',
       false,
-      '1.6 km',
     ],
   ];
 
-  return samples.map(([title, details, location, pay, category, urgency, featured, distance]) => ({
-    ...createLocalJob({ title, details, location, pay, category, urgency, featured, photos: [], requesterName: 'Verified customer' }),
-    distance,
-  }));
+  return samples.map(([title, details, location, city, pay, category, urgency, featured]) =>
+    createLocalJob({ title, details, location, city, pay, category, urgency, featured, photos: [], requesterName: 'Verified customer' }),
+  );
 }

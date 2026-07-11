@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { Card, ChipRow, EmptyCard, JobCard, Pill, SectionTitle } from '../components';
+import { Card, ChipRow, CityRow, EmptyCard, JobCard, Pill, SectionTitle } from '../components';
 import { money } from '../format';
 import { matchesFilters } from '../store';
 import { colors } from '../theme';
@@ -9,14 +9,27 @@ type Props = {
   jobs: Job[];
   category: string;
   onCategory: (category: string) => void;
+  city: string;
+  onCity: (city: string) => void;
+  onNearMe: () => void;
   onOpen: (id: string) => void;
   onAccept: (id: string) => void;
   unread: Record<string, number>;
 };
 
-export default function WorkerScreen({ jobs, category, onCategory, onOpen, onAccept, unread }: Props) {
+export default function WorkerScreen({
+  jobs,
+  category,
+  onCategory,
+  city,
+  onCity,
+  onNearMe,
+  onOpen,
+  onAccept,
+  unread,
+}: Props) {
   const openJobs = jobs.filter((job) => job.status === 'OPEN');
-  const openVisible = openJobs.filter((job) => matchesFilters(job, category, ''));
+  const openVisible = openJobs.filter((job) => matchesFilters(job, category, '', city));
   const acceptedJobs = jobs.filter((job) => job.status === 'ACCEPTED' || job.status === 'IN_PROGRESS');
   const totalOpenPay = openJobs.reduce((sum, job) => sum + job.pay, 0);
 
@@ -34,6 +47,8 @@ export default function WorkerScreen({ jobs, category, onCategory, onOpen, onAcc
           Pick jobs with clear pay, location, and instructions. Open the detail page before accepting.
         </Text>
       </Card>
+
+      <CityRow value={city} onChange={onCity} onNearMe={onNearMe} />
 
       <ChipRow options={CATEGORY_FILTERS} selected={category} onSelect={onCategory} />
 

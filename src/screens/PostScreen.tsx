@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Btn, Bullet, Card, ChipRow, Field } from '../components';
 import { parsePay } from '../format';
+import { areasFor, CITY_NAMES, OTHER_AREA } from '../locations';
 import { colors, radius } from '../theme';
 import { CATEGORIES, Job, JobDraft, URGENCIES } from '../types';
 
@@ -15,9 +16,18 @@ type Props = {
 const MAX_PHOTOS = 5;
 
 export default function PostScreen({ onSubmit, initial, accountName }: Props) {
+  const initialCity = initial && CITY_NAMES.includes(initial.city) ? initial.city : CITY_NAMES[0];
+  const initialArea = initial
+    ? areasFor(initialCity).includes(initial.location)
+      ? initial.location
+      : OTHER_AREA
+    : areasFor(initialCity)[0];
+
   const [title, setTitle] = useState(initial?.title ?? '');
   const [details, setDetails] = useState(initial?.details ?? '');
-  const [location, setLocation] = useState(initial?.location ?? '');
+  const [city, setCity] = useState(initialCity);
+  const [area, setArea] = useState(initialArea);
+  const [customArea, setCustomArea] = useState(initial && initialArea === OTHER_AREA ? initial.location : '');
   const [pay, setPay] = useState(initial ? String(initial.pay) : '');
   const [category, setCategory] = useState<string>(initial?.category ?? CATEGORIES[0]);
   const [urgency, setUrgency] = useState<string>(initial?.urgency ?? URGENCIES[0]);
@@ -44,6 +54,11 @@ export default function PostScreen({ onSubmit, initial, accountName }: Props) {
     setPhotos((current) => current.filter((photo) => photo !== uri));
   };
 
+  const changeCity = (nextCity: string) => {
+    setCity(nextCity);
+    setArea(areasFor(nextCity)[0]);
+  };
+
   const submit = async () => {
     if (submitting) {
       return;
@@ -56,8 +71,8 @@ export default function PostScreen({ onSubmit, initial, accountName }: Props) {
     if (!details.trim()) {
       nextErrors.details = 'Required';
     }
-    if (!location.trim()) {
-      nextErrors.location = 'Required';
+    if (area === OTHER_AREA && !customArea.trim()) {
+      nextErrors.location = 'Type the area name';
     }
     if (parsedPay <= 0) {
       nextErrors.pay = 'Enter a fair amount';
@@ -71,7 +86,8 @@ export default function PostScreen({ onSubmit, initial, accountName }: Props) {
       await onSubmit({
         title: title.trim(),
         details: details.trim(),
-        location: location.trim(),
+        location: area === OTHER_AREA ? customArea.trim() : area,
+        city,
         pay: parsedPay,
         category,
         urgency,
@@ -102,7 +118,20 @@ export default function PostScreen({ onSubmit, initial, accountName }: Props) {
           multiline
           error={errors.details}
         />
-        <Field placeholder="Area or location" value={location} onChangeText={setLocation} error={errors.location} />
+        <Text style={styles.fieldLabel}>City</Text>
+        <ChipRow options={CITY_NAMES} selected={city} onSelect={changeCity} />
+
+        <Text style={styles.fieldLabel}>Area</Text>
+        <ChipRow options={areasFor(city)} selected={area} onSelect={setArea} />
+        {area === OTHER_AREA && (
+          <Field
+            placeholder="Type the area name"
+            value={customArea}
+            onChangeText={setCustomArea}
+            error={errors.location}
+          />
+        )}
+
         <Field
           placeholder="Budget in Rs"
           value={pay}

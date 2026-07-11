@@ -13,7 +13,7 @@ export interface Job {
   workerName: string;
   featured: boolean;
   photos: string[];
-  distance: string;
+  city: string;
   createdAt: number;
   acceptedAt: number;
   completedAt: number;
@@ -43,7 +43,7 @@ export type SubmitResult =
 
 export type JobDraft = Pick<
   Job,
-  'title' | 'details' | 'location' | 'pay' | 'category' | 'urgency' | 'featured' | 'photos' | 'requesterName'
+  'title' | 'details' | 'location' | 'city' | 'pay' | 'category' | 'urgency' | 'featured' | 'photos' | 'requesterName'
 >;
 
 export type Screen = 'home' | 'post' | 'worker' | 'detail' | 'profile' | 'auth' | 'chat';

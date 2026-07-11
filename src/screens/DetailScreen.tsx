@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Btn, Bullet, Card, Pill, statusStyle } from '../components';
-import { money, timeLabel } from '../format';
+import { locationLabel, money, timeLabel } from '../format';
 import { colors, radius } from '../theme';
 import { Job } from '../types';
 
@@ -43,7 +43,7 @@ export default function DetailScreen({ job, onBack, onAccept, onStart, onComplet
         <View style={styles.titleRow}>
           <View style={styles.titleBlock}>
             <Text style={styles.title}>{job.title}</Text>
-            <Text style={styles.meta}>{`${job.category} - ${job.urgency} - ${job.distance}`}</Text>
+            <Text style={styles.meta}>{`${job.category} - ${job.urgency} - ${locationLabel(job)}`}</Text>
           </View>
           <Pill label={money(job.pay)} bg={colors.softBrand} color={colors.brand} />
         </View>
@@ -55,7 +55,7 @@ export default function DetailScreen({ job, onBack, onAccept, onStart, onComplet
         </View>
 
         <View style={styles.infoBlock}>
-          <InfoRow label="Location" value={job.location} />
+          <InfoRow label="Location" value={locationLabel(job)} />
           <InfoRow label="Posted by" value={job.requesterName} />
           <InfoRow label="Posted" value={timeLabel(job.createdAt)} />
         </View>
@@ -67,10 +67,6 @@ export default function DetailScreen({ job, onBack, onAccept, onStart, onComplet
             ))}
           </ScrollView>
         )}
-
-        <View style={styles.map}>
-          <Text style={styles.mapText}>{`Map preview - ${job.location}`}</Text>
-        </View>
 
         <Text style={styles.descriptionTitle}>Description</Text>
         <Text style={styles.description}>{job.details}</Text>
@@ -192,21 +188,6 @@ const styles = StyleSheet.create({
     height: 140,
     marginRight: 10,
     width: 140,
-  },
-  map: {
-    alignItems: 'center',
-    backgroundColor: colors.mapFill,
-    borderColor: colors.line,
-    borderRadius: radius,
-    borderWidth: 1,
-    justifyContent: 'center',
-    marginTop: 16,
-    minHeight: 86,
-  },
-  mapText: {
-    color: colors.ink,
-    fontSize: 15,
-    fontWeight: '700',
   },
   descriptionTitle: {
     color: colors.ink,

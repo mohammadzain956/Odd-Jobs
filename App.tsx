@@ -25,6 +25,7 @@ import {
   subscribeToInbox,
   updateJobFields,
 } from './src/store';
+import { detectCity } from './src/location';
 import { colors, radius } from './src/theme';
 import { AuthUser, Job, JobDraft, Screen } from './src/types';
 
@@ -51,6 +52,7 @@ export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [screen, setScreen] = useState<Screen>('home');
   const [category, setCategory] = useState('All');
+  const [cityFilter, setCityFilter] = useState('All');
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState('');
   const [editingId, setEditingId] = useState('');
@@ -189,6 +191,17 @@ export default function App() {
     notify('Thanks. Our team will review this post.');
   };
 
+  const handleNearMe = async () => {
+    notify('Finding your city...');
+    const city = await detectCity();
+    if (city) {
+      setCityFilter(city);
+      notify(`Showing jobs in ${city}`);
+    } else {
+      notify('Could not detect your city here. Pick it from the list.');
+    }
+  };
+
   const handleChat = (id: string) => {
     if (!remoteEnabled) {
       notify('Chat needs the online backend');
@@ -258,7 +271,7 @@ export default function App() {
               <Text style={styles.brand}>Odd Jobs</Text>
               <Text style={styles.subtitle}>{SUBTITLES[screen]}</Text>
             </View>
-            <Pill label="Pakistan" bg={colors.softBrand} color={colors.brand} />
+            <Pill label={cityFilter === 'All' ? 'Pakistan' : cityFilter} bg={colors.softBrand} color={colors.brand} />
           </View>
 
           {screen !== 'detail' && screen !== 'chat' && (
@@ -283,6 +296,9 @@ export default function App() {
               jobs={jobs}
               category={category}
               onCategory={setCategory}
+              city={cityFilter}
+              onCity={setCityFilter}
+              onNearMe={() => void handleNearMe()}
               query={query}
               onQuery={setQuery}
               onOpen={openDetail}
@@ -303,6 +319,9 @@ export default function App() {
               jobs={jobs}
               category={category}
               onCategory={setCategory}
+              city={cityFilter}
+              onCity={setCityFilter}
+              onNearMe={() => void handleNearMe()}
               onOpen={openDetail}
               onAccept={acceptJob}
               unread={unread}

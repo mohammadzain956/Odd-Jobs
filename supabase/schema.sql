@@ -16,7 +16,7 @@ create table public.jobs (
   worker_name text not null default '',
   featured boolean not null default false,
   photos text[] not null default '{}',
-  distance text not null default 'Nearby',
+  city text not null default '',
   created_by uuid references auth.users (id),
   accepted_by uuid references auth.users (id),
   created_at timestamptz not null default now(),
@@ -70,8 +70,8 @@ create policy "read job photos"
   using (bucket_id = 'job-photos');
 
 -- Sample jobs so the marketplace is not empty on first launch.
-insert into public.jobs (title, details, location, pay, category, urgency, moderation_status, requester_name, featured, distance) values
-  ('Move sofa to second floor', 'Need two careful helpers to move one sofa and a small table from the garage to an upstairs room.', 'DHA Phase 5, Lahore', 4500, 'Moving', 'Today', 'approved', 'Verified customer', true, '2.1 km'),
-  ('Assemble wardrobe', 'Flat-pack wardrobe is delivered. Bring a basic drill and help assemble it neatly.', 'Gulberg, Lahore', 3200, 'Assembly', 'This week', 'approved', 'Verified customer', false, '3.4 km'),
-  ('Deep clean small office', 'One-room office needs floor cleaning, dusting, and trash removal before Monday.', 'Blue Area, Islamabad', 6000, 'Cleaning', 'Flexible', 'approved', 'Verified customer', true, 'Nearby'),
-  ('Deliver documents', 'Pick up a sealed envelope and deliver it across town. Delivery window is 2 pm to 5 pm.', 'Clifton, Karachi', 1800, 'Delivery', 'Today', 'approved', 'Verified customer', false, '1.6 km');
+insert into public.jobs (title, details, location, city, pay, category, urgency, moderation_status, requester_name, featured) values
+  ('Move sofa to second floor', 'Need two careful helpers to move one sofa and a small table from the garage to an upstairs room.', 'DHA', 'Lahore', 4500, 'Moving', 'Today', 'approved', 'Verified customer', true),
+  ('Assemble wardrobe', 'Flat-pack wardrobe is delivered. Bring a basic drill and help assemble it neatly.', 'Gulberg', 'Lahore', 3200, 'Assembly', 'This week', 'approved', 'Verified customer', false),
+  ('Deep clean small office', 'One-room office needs floor cleaning, dusting, and trash removal before Monday.', 'Blue Area', 'Islamabad', 6000, 'Cleaning', 'Flexible', 'approved', 'Verified customer', true),
+  ('Deliver documents', 'Pick up a sealed envelope and deliver it across town. Delivery window is 2 pm to 5 pm.', 'Clifton', 'Karachi', 1800, 'Delivery', 'Today', 'approved', 'Verified customer', false);

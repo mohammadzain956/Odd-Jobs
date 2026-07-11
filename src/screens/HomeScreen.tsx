@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { Btn, Card, ChipRow, EmptyCard, Field, JobCard, SectionTitle } from '../components';
+import { Btn, Card, ChipRow, CityRow, EmptyCard, Field, JobCard, SectionTitle } from '../components';
 import { matchesFilters } from '../store';
 import { colors, radius } from '../theme';
 import { CATEGORY_FILTERS, Job } from '../types';
@@ -8,6 +8,9 @@ type Props = {
   jobs: Job[];
   category: string;
   onCategory: (category: string) => void;
+  city: string;
+  onCity: (city: string) => void;
+  onNearMe: () => void;
   query: string;
   onQuery: (query: string) => void;
   onOpen: (id: string) => void;
@@ -15,8 +18,20 @@ type Props = {
   unread: Record<string, number>;
 };
 
-export default function HomeScreen({ jobs, category, onCategory, query, onQuery, onOpen, onGoPost, unread }: Props) {
-  const visible = jobs.filter((job) => matchesFilters(job, category, query));
+export default function HomeScreen({
+  jobs,
+  category,
+  onCategory,
+  city,
+  onCity,
+  onNearMe,
+  query,
+  onQuery,
+  onOpen,
+  onGoPost,
+  unread,
+}: Props) {
+  const visible = jobs.filter((job) => matchesFilters(job, category, query, city));
   const featured = visible.filter((job) => job.featured);
   const openCount = jobs.filter((job) => job.status === 'OPEN').length;
   const acceptedCount = jobs.filter((job) => job.status === 'ACCEPTED' || job.status === 'IN_PROGRESS').length;
@@ -32,6 +47,8 @@ export default function HomeScreen({ jobs, category, onCategory, query, onQuery,
         <Field placeholder="Search jobs" value={query} onChangeText={onQuery} returnKeyType="search" />
         <Btn label="Post a job request" onPress={onGoPost} color={colors.action} style={styles.cta} />
       </Card>
+
+      <CityRow value={city} onChange={onCity} onNearMe={onNearMe} />
 
       <ChipRow options={CATEGORY_FILTERS} selected={category} onSelect={onCategory} />
 

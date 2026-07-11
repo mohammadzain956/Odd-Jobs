@@ -70,6 +70,7 @@ Deno.serve(async (req) => {
   const title = String(draft.title ?? "").trim().slice(0, 120);
   const details = String(draft.details ?? "").trim().slice(0, 2000);
   const location = String(draft.location ?? "").trim().slice(0, 120);
+  const city = String(draft.city ?? "").trim().slice(0, 40);
   const pay = Number(draft.pay);
   const category = CATEGORIES.includes(draft.category) ? draft.category : "General help";
   const urgency = URGENCIES.includes(draft.urgency) ? draft.urgency : "Flexible";
@@ -98,7 +99,7 @@ Deno.serve(async (req) => {
     const prompt = MODERATION_PROMPT
       .replace("{title}", title)
       .replace("{category}", category)
-      .replace("{location}", location)
+      .replace("{location}", `${location}, ${city}`)
       .replace("{pay}", String(pay))
       .replace("{details}", details);
     const response = await anthropic.messages.create({
@@ -129,6 +130,7 @@ Deno.serve(async (req) => {
       title,
       details,
       location,
+      city,
       pay,
       category,
       urgency,

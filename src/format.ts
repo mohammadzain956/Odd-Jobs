@@ -12,6 +12,13 @@ export function timeLabel(timestamp: number): string {
   return `${MONTHS[date.getMonth()]} ${date.getDate()}`;
 }
 
+export function locationLabel(job: { location: string; city: string }): string {
+  if (job.city && job.location) {
+    return `${job.location}, ${job.city}`;
+  }
+  return job.city || job.location;
+}
+
 export function shorten(value: string, limit: number): string {
   if (value.length <= limit) {
     return value;
