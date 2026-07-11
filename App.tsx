@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Pill } from './src/components';
 import AuthScreen from './src/screens/AuthScreen';
+import ChatScreen from './src/screens/ChatScreen';
 import DetailScreen from './src/screens/DetailScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import PostScreen from './src/screens/PostScreen';
@@ -31,6 +32,7 @@ const SUBTITLES: Record<Screen, string> = {
   detail: 'Review the request before taking action.',
   profile: 'Your account and the posts you manage.',
   auth: 'Log in or create your account.',
+  chat: 'Sort out the details together.',
 };
 
 const NAV_ITEMS: Array<{ screen: Screen; label: string }> = [
@@ -138,7 +140,12 @@ export default function App() {
     if (requireLogin(screen, 'Log in to accept jobs')) {
       return;
     }
-    patchJob(id, { status: 'ACCEPTED', workerName: user?.name ?? 'You', acceptedAt: Date.now() });
+    patchJob(id, {
+      status: 'ACCEPTED',
+      workerName: user?.name ?? 'You',
+      acceptedBy: user?.id ?? '',
+      acceptedAt: Date.now(),
+    });
     notify('Job accepted');
     openDetail(id);
   };
@@ -156,6 +163,30 @@ export default function App() {
   const handleReport = (id: string, reason: string) => {
     void reportJob(id, reason);
     notify('Thanks. Our team will review this post.');
+  };
+
+  const handleChat = (id: string) => {
+    if (!remoteEnabled) {
+      notify('Chat needs the online backend');
+      return;
+    }
+    if (requireLogin('detail', 'Log in to chat')) {
+      return;
+    }
+    const job = jobs.find((j) => j.id === id);
+    if (!job) {
+      return;
+    }
+    if (job.status === 'OPEN') {
+      notify('Chat opens once a worker accepts the job');
+      return;
+    }
+    if (user && job.createdBy !== user.id && job.acceptedBy !== user.id) {
+      notify('Chat is private between the poster and the worker');
+      return;
+    }
+    setSelectedId(id);
+    setScreen('chat');
   };
 
   const handleEdit = (id: string) => {
@@ -204,7 +235,7 @@ export default function App() {
             <Pill label="Pakistan" bg={colors.softBrand} color={colors.brand} />
           </View>
 
-          {screen !== 'detail' && (
+          {screen !== 'detail' && screen !== 'chat' && (
             <View style={styles.nav}>
               {NAV_ITEMS.map((item) => {
                 const active = screen === item.screen;
@@ -272,8 +303,11 @@ export default function App() {
               onStart={startJob}
               onComplete={completeJob}
               onReport={handleReport}
-              notify={notify}
+              onChat={handleChat}
             />
+          )}
+          {screen === 'chat' && selectedJob && user && (
+            <ChatScreen job={selectedJob} user={user} onBack={() => setScreen('detail')} />
           )}
         </ScrollView>
 

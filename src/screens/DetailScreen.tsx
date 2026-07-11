@@ -22,10 +22,10 @@ type Props = {
   onStart: (id: string) => void;
   onComplete: (id: string) => void;
   onReport: (id: string, reason: string) => void;
-  notify: (message: string) => void;
+  onChat: (id: string) => void;
 };
 
-export default function DetailScreen({ job, onBack, onAccept, onStart, onComplete, onReport, notify }: Props) {
+export default function DetailScreen({ job, onBack, onAccept, onStart, onComplete, onReport, onChat }: Props) {
   const status = statusStyle(job.status);
   const [reporting, setReporting] = useState(false);
 
@@ -81,7 +81,7 @@ export default function DetailScreen({ job, onBack, onAccept, onStart, onComplet
           <View style={styles.secondaryRow}>
             <Btn
               label="Chat"
-              onPress={() => notify('Chat preview coming next')}
+              onPress={() => onChat(job.id)}
               outline
               small
               style={styles.secondaryBtn}

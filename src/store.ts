@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { User } from '@supabase/supabase-js';
 import { remoteEnabled } from './config';
 import { supabase } from './supabase';
-import { AuthUser, Job, JobDraft, SubmitResult } from './types';
+import { AuthUser, ChatMessage, Job, JobDraft, SubmitResult } from './types';
 
 const JOBS_KEY = 'odd_jobs_store.jobs';
 
@@ -160,6 +160,71 @@ export async function signOutUser(): Promise<void> {
   await supabase?.auth.signOut();
 }
 
+function rowToMessage(row: Record<string, unknown>): ChatMessage {
+  return {
+    id: String(row.id),
+    jobId: String(row.job_id),
+    senderId: String(row.sender_id),
+    senderName: String(row.sender_name ?? ''),
+    body: String(row.body ?? ''),
+    createdAt: row.created_at ? Date.parse(String(row.created_at)) : 0,
+  };
+}
+
+export async function loadMessages(jobId: string): Promise<ChatMessage[]> {
+  if (!supabase) {
+    return [];
+  }
+  const { data, error } = await supabase
+    .from('messages')
+    .select('*')
+    .eq('job_id', jobId)
+    .order('created_at', { ascending: true });
+  if (error) {
+    console.warn('Could not load messages:', error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToMessage);
+}
+
+export async function sendMessage(jobId: string, body: string): Promise<ChatMessage | null> {
+  if (!supabase) {
+    return null;
+  }
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) {
+    return null;
+  }
+  const senderName = String(userData.user.user_metadata?.display_name ?? '').trim() || 'User';
+  const { data, error } = await supabase
+    .from('messages')
+    .insert({ job_id: jobId, sender_id: userData.user.id, sender_name: senderName, body })
+    .select()
+    .single();
+  if (error) {
+    console.warn('Could not send message:', error.message);
+    return null;
+  }
+  return rowToMessage(data);
+}
+
+export function subscribeToMessages(jobId: string, onNew: (message: ChatMessage) => void): () => void {
+  if (!supabase) {
+    return () => {};
+  }
+  const channel = supabase
+    .channel(`messages-${jobId}`)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'messages', filter: `job_id=eq.${jobId}` },
+      (payload) => onNew(rowToMessage(payload.new as Record<string, unknown>)),
+    )
+    .subscribe();
+  return () => {
+    void supabase?.removeChannel(channel);
+  };
+}
+
 export async function reportJob(id: string, reason: string): Promise<void> {
   if (!supabase) {
     return;
@@ -223,6 +288,7 @@ function rowToJob(row: Record<string, unknown>): Job {
     completedAt: row.completed_at ? Date.parse(String(row.completed_at)) : 0,
     moderationStatus: row.moderation_status === 'pending' ? 'pending' : 'approved',
     createdBy: row.created_by ? String(row.created_by) : '',
+    acceptedBy: row.accepted_by ? String(row.accepted_by) : '',
   };
 }
 
@@ -238,6 +304,7 @@ function createLocalJob(draft: JobDraft): Job {
     completedAt: 0,
     moderationStatus: 'approved',
     createdBy: '',
+    acceptedBy: '',
   };
 }
 

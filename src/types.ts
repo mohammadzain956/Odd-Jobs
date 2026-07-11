@@ -19,6 +19,16 @@ export interface Job {
   completedAt: number;
   moderationStatus: 'approved' | 'pending';
   createdBy: string;
+  acceptedBy: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  jobId: string;
+  senderId: string;
+  senderName: string;
+  body: string;
+  createdAt: number;
 }
 
 export interface AuthUser {
@@ -36,7 +46,7 @@ export type JobDraft = Pick<
   'title' | 'details' | 'location' | 'pay' | 'category' | 'urgency' | 'featured' | 'photos' | 'requesterName'
 >;
 
-export type Screen = 'home' | 'post' | 'worker' | 'detail' | 'profile' | 'auth';
+export type Screen = 'home' | 'post' | 'worker' | 'detail' | 'profile' | 'auth' | 'chat';
 
 export const CATEGORIES = [
   'Moving',
