@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "589636785454",
+    "project_id": "odd-jobs-ee55e",
+    "storage_bucket": "odd-jobs-ee55e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:589636785454:android:5aaf78b8f8f5affd3256bf",
+        "android_client_info": {
+          "package_name": "com.oddjobs.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBYTtqHO12JFzMtDWiuF20iSGcLq7KnOfc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
