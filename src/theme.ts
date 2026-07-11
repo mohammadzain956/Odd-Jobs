@@ -12,7 +12,6 @@ export const colors = {
   softGold: '#F7EFD8',
   softGrey: '#ECEEE8',
   navTrack: '#E8EAE3',
-  mapFill: '#EAF0E9',
 };
 
 export const radius = 8;
