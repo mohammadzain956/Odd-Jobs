@@ -62,9 +62,9 @@ export default function App() {
   const [editingId, setEditingId] = useState('');
   const [toast, setToast] = useState('');
   const [unread, setUnread] = useState<Record<string, number>>({});
+  const [afterAuth, setAfterAuth] = useState<Screen>('home');
   const scrollRef = useRef<ScrollView>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const afterAuth = useRef<Screen>('home');
   const activeChatId = useRef('');
 
   useEffect(() => {
@@ -128,7 +128,7 @@ export default function App() {
 
   const requireLogin = (destination: Screen, message: string): boolean => {
     if (remoteEnabled && !user) {
-      afterAuth.current = destination;
+      setAfterAuth(destination);
       setScreen('auth');
       notify(message);
       return true;
@@ -273,8 +273,8 @@ export default function App() {
 
   const handleAuthDone = (signedIn: AuthUser) => {
     setUser(signedIn);
-    setScreen(afterAuth.current);
-    afterAuth.current = 'home';
+    setScreen(afterAuth);
+    setAfterAuth('home');
     notify(`Welcome, ${signedIn.name}`);
   };
 
@@ -313,12 +313,12 @@ export default function App() {
           {screen !== 'detail' && screen !== 'chat' && (
             <View style={styles.nav}>
               {NAV_ITEMS.map((item) => {
-                const active = screen === item.screen;
+                const active = (screen === 'auth' ? afterAuth : screen) === item.screen;
                 return (
                   <Pressable
                     key={item.screen}
                     onPress={() => openNav(item.screen)}
-                    style={[styles.navButton, active && styles.navButtonActive]}
+                    style={({ pressed }) => [styles.navButton, active && styles.navButtonActive, pressed && styles.navPressed]}
                   >
                     <Text style={[styles.navLabel, { color: active ? colors.card : colors.ink }]}>{item.label}</Text>
                   </Pressable>
@@ -376,7 +376,7 @@ export default function App() {
               onEdit={handleEdit}
               onDelete={handleDelete}
               onGoLogin={() => {
-                afterAuth.current = 'profile';
+                setAfterAuth('profile');
                 setScreen('auth');
               }}
               onSignOut={handleSignOut}
@@ -457,6 +457,9 @@ const styles = StyleSheet.create({
   },
   navButtonActive: {
     backgroundColor: colors.ink,
+  },
+  navPressed: {
+    opacity: 0.6,
   },
   navLabel: {
     fontSize: 14,
