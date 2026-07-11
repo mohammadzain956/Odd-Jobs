@@ -4,23 +4,25 @@ import { Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 're
 import { Btn, Bullet, Card, ChipRow, Field } from '../components';
 import { parsePay } from '../format';
 import { colors, radius } from '../theme';
-import { CATEGORIES, JobDraft, URGENCIES } from '../types';
+import { CATEGORIES, Job, JobDraft, URGENCIES } from '../types';
 
 type Props = {
   onSubmit: (draft: JobDraft) => Promise<void>;
+  initial?: Job;
+  accountName?: string;
 };
 
 const MAX_PHOTOS = 5;
 
-export default function PostScreen({ onSubmit }: Props) {
-  const [title, setTitle] = useState('');
-  const [details, setDetails] = useState('');
-  const [location, setLocation] = useState('');
-  const [pay, setPay] = useState('');
-  const [category, setCategory] = useState<string>(CATEGORIES[0]);
-  const [urgency, setUrgency] = useState<string>(URGENCIES[0]);
+export default function PostScreen({ onSubmit, initial, accountName }: Props) {
+  const [title, setTitle] = useState(initial?.title ?? '');
+  const [details, setDetails] = useState(initial?.details ?? '');
+  const [location, setLocation] = useState(initial?.location ?? '');
+  const [pay, setPay] = useState(initial ? String(initial.pay) : '');
+  const [category, setCategory] = useState<string>(initial?.category ?? CATEGORIES[0]);
+  const [urgency, setUrgency] = useState<string>(initial?.urgency ?? URGENCIES[0]);
   const [photos, setPhotos] = useState<string[]>([]);
-  const [featured, setFeatured] = useState(false);
+  const [featured, setFeatured] = useState(initial?.featured ?? false);
   const [requester, setRequester] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ title?: string; details?: string; location?: string; pay?: string }>({});
@@ -74,8 +76,8 @@ export default function PostScreen({ onSubmit }: Props) {
         category,
         urgency,
         featured,
-        photos,
-        requesterName: requester.trim() || 'Customer',
+        photos: initial ? initial.photos : photos,
+        requesterName: accountName ?? (requester.trim() || 'Customer'),
       });
     } finally {
       setSubmitting(false);
@@ -85,9 +87,11 @@ export default function PostScreen({ onSubmit }: Props) {
   return (
     <View>
       <Card style={styles.form}>
-        <Text style={styles.title}>Post a job</Text>
+        <Text style={styles.title}>{initial ? 'Edit your post' : 'Post a job'}</Text>
         <Text style={styles.helper}>
-          Use a short title, fair pay, real photos, and a clear area so workers can decide quickly.
+          {initial
+            ? 'Update the details below. Photos stay as they are.'
+            : 'Use a short title, fair pay, real photos, and a clear area so workers can decide quickly.'}
         </Text>
 
         <Field placeholder="Job title" value={title} onChangeText={setTitle} error={errors.title} />
@@ -113,8 +117,8 @@ export default function PostScreen({ onSubmit }: Props) {
         <Text style={styles.fieldLabel}>Urgency</Text>
         <ChipRow options={URGENCIES} selected={urgency} onSelect={setUrgency} />
 
-        <Text style={styles.fieldLabel}>Photos</Text>
-        {photos.length > 0 && (
+        {!initial && <Text style={styles.fieldLabel}>Photos</Text>}
+        {!initial && photos.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoRow}>
             {photos.map((uri) => (
               <Pressable key={uri} onPress={() => removePhoto(uri)}>
@@ -124,7 +128,7 @@ export default function PostScreen({ onSubmit }: Props) {
             ))}
           </ScrollView>
         )}
-        {photos.length < MAX_PHOTOS && (
+        {!initial && photos.length < MAX_PHOTOS && (
           <Btn
             label={photos.length === 0 ? 'Add photos' : `Add more (${photos.length}/${MAX_PHOTOS})`}
             onPress={() => void pickPhotos()}
@@ -143,9 +147,13 @@ export default function PostScreen({ onSubmit }: Props) {
           />
         </View>
 
-        <Field placeholder="Your name" value={requester} onChangeText={setRequester} />
+        {!accountName && !initial && <Field placeholder="Your name" value={requester} onChangeText={setRequester} />}
 
-        <Btn label={submitting ? 'Checking your post...' : 'Post now'} onPress={() => void submit()} style={styles.submit} />
+        <Btn
+          label={submitting ? 'Saving...' : initial ? 'Save changes' : 'Post now'}
+          onPress={() => void submit()}
+          style={styles.submit}
+        />
       </Card>
 
       <Card style={styles.tips}>

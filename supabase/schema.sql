@@ -43,11 +43,16 @@ create policy "read approved or own jobs"
 -- No insert policy on jobs: posts are created only through the create-job
 -- edge function (service role), which runs AI moderation first.
 
--- Signed-in users can update approved jobs (accept / start / complete).
--- Tighten to per-role rules once real accounts land.
-create policy "update approved jobs"
+-- Signed-in users can update approved jobs (accept / start / complete),
+-- and posters can always update their own posts (edit while pending).
+create policy "update approved or own jobs"
   on public.jobs for update
-  using (auth.role() = 'authenticated' and moderation_status = 'approved');
+  using (auth.role() = 'authenticated' and (moderation_status = 'approved' or created_by = auth.uid()));
+
+-- Posters can delete their own posts.
+create policy "delete own jobs"
+  on public.jobs for delete
+  using (created_by = auth.uid());
 
 create policy "insert own reports"
   on public.reports for insert

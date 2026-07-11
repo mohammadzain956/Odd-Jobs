@@ -64,7 +64,8 @@ Deno.serve(async (req) => {
   const pay = Number(draft.pay);
   const category = CATEGORIES.includes(draft.category) ? draft.category : "General help";
   const urgency = URGENCIES.includes(draft.urgency) ? draft.urgency : "Flexible";
-  const requesterName = String(draft.requesterName ?? "Customer").trim().slice(0, 60) || "Customer";
+  const accountName = String(userData.user.user_metadata?.display_name ?? "").trim();
+  const requesterName = (accountName || String(draft.requesterName ?? "Customer").trim()).slice(0, 60) || "Customer";
   const photos = Array.isArray(draft.photos) ? draft.photos.slice(0, 5).map(String) : [];
   const featured = Boolean(draft.featured);
 
@@ -72,11 +73,19 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Missing or invalid fields" }, 400);
   }
 
-  // AI moderation.
-  const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY")! });
-  let verdict = "review";
+  // AI moderation. If no API key is configured yet, posts go live unmoderated
+  // (fine for private testing; add the key before opening to the public).
+  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+  let verdict = anthropicKey ? "review" : "approve";
   let reason = "Automatic moderation was unavailable, so the post is held for human review.";
+  if (!anthropicKey) {
+    console.warn("ANTHROPIC_API_KEY not set; skipping moderation.");
+  }
+  const anthropic = anthropicKey ? new Anthropic({ apiKey: anthropicKey }) : null;
   try {
+    if (!anthropic) {
+      throw new Error("moderation disabled");
+    }
     const prompt = MODERATION_PROMPT
       .replace("{title}", title)
       .replace("{category}", category)

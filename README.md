@@ -43,19 +43,21 @@ supabase/functions/      create-job edge function (AI moderation with Claude)
 
 1. Create a free account at supabase.com and create a new project.
 2. In the dashboard, open **SQL Editor**, paste the contents of `supabase/schema.sql`, and run it.
-3. Under **Authentication > Sign In / Up**, enable **Anonymous sign-ins**.
+3. Under **Authentication > Sign In / Providers**, make sure **Email** is enabled.
+   For easier testing, turn off **Confirm email** (turn it back on before public launch).
 4. Install the Supabase CLI (`npm install -g supabase`), then from this folder:
    ```
    supabase login
    supabase link --project-ref <your-project-ref>
-   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
    supabase functions deploy create-job
    ```
-   The Anthropic API key comes from platform.claude.com (Console > API keys);
-   it powers the AI moderation of new posts.
 5. Copy the **Project URL** and **anon public key** from
    **Project Settings > API** into `src/config.ts`.
-6. Restart the app. Posts are now shared, moderated, and reportable.
+6. Restart the app. Accounts, shared posts, photos, and reports now work.
+7. Optional (recommended before public launch) - enable AI moderation:
+   get an API key at platform.claude.com, then run
+   `supabase secrets set ANTHROPIC_API_KEY=sk-ant-...`.
+   Without the key, new posts go live unmoderated.
 
 ### How moderation works
 

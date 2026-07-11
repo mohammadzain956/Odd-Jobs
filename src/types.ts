@@ -18,6 +18,13 @@ export interface Job {
   acceptedAt: number;
   completedAt: number;
   moderationStatus: 'approved' | 'pending';
+  createdBy: string;
+}
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
 }
 
 export type SubmitResult =
@@ -29,7 +36,7 @@ export type JobDraft = Pick<
   'title' | 'details' | 'location' | 'pay' | 'category' | 'urgency' | 'featured' | 'photos' | 'requesterName'
 >;
 
-export type Screen = 'home' | 'post' | 'worker' | 'detail';
+export type Screen = 'home' | 'post' | 'worker' | 'detail' | 'profile' | 'auth';
 
 export const CATEGORIES = [
   'Moving',

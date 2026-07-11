@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { User } from '@supabase/supabase-js';
 import { remoteEnabled } from './config';
-import { ensureSignedIn, supabase } from './supabase';
-import { Job, JobDraft, SubmitResult } from './types';
+import { supabase } from './supabase';
+import { AuthUser, Job, JobDraft, SubmitResult } from './types';
 
 const JOBS_KEY = 'odd_jobs_store.jobs';
 
@@ -24,7 +25,6 @@ export function matchesFilters(job: Job, category: string, query: string): boole
 
 export async function loadJobs(): Promise<Job[]> {
   if (supabase) {
-    await ensureSignedIn();
     const { data, error } = await supabase
       .from('jobs')
       .select('*')
@@ -40,7 +40,10 @@ export async function loadJobs(): Promise<Job[]> {
 
 export async function submitJob(draft: JobDraft): Promise<SubmitResult> {
   if (supabase) {
-    await ensureSignedIn();
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) {
+      return { verdict: 'rejected', job: null, reason: 'Please log in to post a job.' };
+    }
     const photos = await uploadPhotos(draft.photos);
     const { data, error } = await supabase.functions.invoke('create-job', { body: { ...draft, photos } });
     if (error || !data) {
@@ -71,6 +74,90 @@ export async function saveJobPatch(id: string, patch: Partial<Job>): Promise<voi
   if (error) {
     console.warn('Could not update job:', error.message);
   }
+}
+
+export async function updateJobFields(id: string, draft: JobDraft): Promise<void> {
+  if (!supabase) {
+    return;
+  }
+  const { error } = await supabase
+    .from('jobs')
+    .update({
+      title: draft.title,
+      details: draft.details,
+      location: draft.location,
+      pay: draft.pay,
+      category: draft.category,
+      urgency: draft.urgency,
+      featured: draft.featured,
+    })
+    .eq('id', id);
+  if (error) {
+    console.warn('Could not update post:', error.message);
+  }
+}
+
+export async function deleteJob(id: string): Promise<void> {
+  if (!supabase) {
+    return;
+  }
+  const { error } = await supabase.from('jobs').delete().eq('id', id);
+  if (error) {
+    console.warn('Could not delete post:', error.message);
+  }
+}
+
+function toAuthUser(user: User): AuthUser {
+  const name = String(user.user_metadata?.display_name ?? '').trim();
+  return { id: user.id, email: user.email ?? '', name: name || (user.email ?? 'User') };
+}
+
+export async function getSessionUser(): Promise<AuthUser | null> {
+  if (!supabase) {
+    return null;
+  }
+  const { data } = await supabase.auth.getSession();
+  return data.session ? toAuthUser(data.session.user) : null;
+}
+
+export async function signUpUser(
+  name: string,
+  email: string,
+  password: string,
+): Promise<{ user: AuthUser | null; message?: string }> {
+  if (!supabase) {
+    return { user: null, message: 'Backend is not connected yet.' };
+  }
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { display_name: name } },
+  });
+  if (error) {
+    return { user: null, message: error.message };
+  }
+  if (!data.session) {
+    return { user: null, message: 'Check your email to confirm your account, then log in.' };
+  }
+  return { user: toAuthUser(data.session.user) };
+}
+
+export async function signInUser(
+  email: string,
+  password: string,
+): Promise<{ user: AuthUser | null; message?: string }> {
+  if (!supabase) {
+    return { user: null, message: 'Backend is not connected yet.' };
+  }
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) {
+    return { user: null, message: error.message };
+  }
+  return { user: toAuthUser(data.user) };
+}
+
+export async function signOutUser(): Promise<void> {
+  await supabase?.auth.signOut();
 }
 
 export async function reportJob(id: string, reason: string): Promise<void> {
@@ -135,6 +222,7 @@ function rowToJob(row: Record<string, unknown>): Job {
     acceptedAt: row.accepted_at ? Date.parse(String(row.accepted_at)) : 0,
     completedAt: row.completed_at ? Date.parse(String(row.completed_at)) : 0,
     moderationStatus: row.moderation_status === 'pending' ? 'pending' : 'approved',
+    createdBy: row.created_by ? String(row.created_by) : '',
   };
 }
 
@@ -149,6 +237,7 @@ function createLocalJob(draft: JobDraft): Job {
     acceptedAt: 0,
     completedAt: 0,
     moderationStatus: 'approved',
+    createdBy: '',
   };
 }
 
