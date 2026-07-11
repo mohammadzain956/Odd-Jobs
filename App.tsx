@@ -14,12 +14,15 @@ import {
   deleteJob,
   getSessionUser,
   loadJobs,
+  loadUnreadCounts,
+  markChatRead,
   persistLocal,
   remoteEnabled,
   reportJob,
   saveJobPatch,
   signOutUser,
   submitJob,
+  subscribeToInbox,
   updateJobFields,
 } from './src/store';
 import { colors, radius } from './src/theme';
@@ -52,9 +55,11 @@ export default function App() {
   const [selectedId, setSelectedId] = useState('');
   const [editingId, setEditingId] = useState('');
   const [toast, setToast] = useState('');
+  const [unread, setUnread] = useState<Record<string, number>>({});
   const scrollRef = useRef<ScrollView>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const afterAuth = useRef<Screen>('home');
+  const activeChatId = useRef('');
 
   useEffect(() => {
     Promise.all([loadJobs(), getSessionUser()]).then(([loaded, sessionUser]) => {
@@ -66,10 +71,29 @@ export default function App() {
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
+    activeChatId.current = screen === 'chat' ? selectedId : '';
     if (remoteEnabled && ready && (screen === 'home' || screen === 'worker' || screen === 'profile')) {
       loadJobs().then(setJobs);
+      if (user) {
+        loadUnreadCounts().then(setUnread);
+      }
     }
-  }, [screen, ready]);
+  }, [screen, ready, selectedId, user?.id]);
+
+  useEffect(() => {
+    if (!remoteEnabled || !user) {
+      return;
+    }
+    loadUnreadCounts().then(setUnread);
+    const unsubscribe = subscribeToInbox((message) => {
+      if (message.senderId === user.id || activeChatId.current === message.jobId) {
+        return;
+      }
+      setUnread((current) => ({ ...current, [message.jobId]: (current[message.jobId] ?? 0) + 1 }));
+      notify(`New message from ${message.senderName}`);
+    });
+    return unsubscribe;
+  }, [user?.id]);
 
   const notify = (message: string) => {
     setToast(message);
@@ -185,6 +209,8 @@ export default function App() {
       notify('Chat is private between the poster and the worker');
       return;
     }
+    setUnread((current) => ({ ...current, [id]: 0 }));
+    void markChatRead(id);
     setSelectedId(id);
     setScreen('chat');
   };
@@ -261,6 +287,7 @@ export default function App() {
               onQuery={setQuery}
               onOpen={openDetail}
               onGoPost={() => openNav('post')}
+              unread={unread}
             />
           )}
           {screen === 'post' && (
@@ -278,12 +305,14 @@ export default function App() {
               onCategory={setCategory}
               onOpen={openDetail}
               onAccept={acceptJob}
+              unread={unread}
             />
           )}
           {screen === 'profile' && (
             <ProfileScreen
               user={user}
               jobs={jobs}
+              unread={unread}
               onOpen={openDetail}
               onEdit={handleEdit}
               onDelete={handleDelete}
@@ -304,6 +333,7 @@ export default function App() {
               onComplete={completeJob}
               onReport={handleReport}
               onChat={handleChat}
+              unread={unread[selectedJob.id] ?? 0}
             />
           )}
           {screen === 'chat' && selectedJob && user && (

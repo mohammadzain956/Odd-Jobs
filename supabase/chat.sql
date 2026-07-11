@@ -35,3 +35,39 @@ create policy "send messages as participant"
 
 -- Stream new messages to the app in real time.
 alter publication supabase_realtime add table public.messages;
+
+-- Tracks how far each user has read in each chat, for unread badges.
+create table public.chat_reads (
+  job_id uuid not null references public.jobs (id) on delete cascade,
+  user_id uuid not null references auth.users (id),
+  last_read_at timestamptz not null default now(),
+  primary key (job_id, user_id)
+);
+
+alter table public.chat_reads enable row level security;
+
+create policy "read own chat reads"
+  on public.chat_reads for select
+  using (user_id = auth.uid());
+
+create policy "insert own chat reads"
+  on public.chat_reads for insert
+  with check (user_id = auth.uid());
+
+create policy "update own chat reads"
+  on public.chat_reads for update
+  using (user_id = auth.uid());
+
+-- Unread message count per job for the signed-in user.
+create or replace function public.unread_counts()
+returns table (job_id uuid, unread bigint)
+language sql security invoker as $$
+  select m.job_id, count(*) as unread
+  from public.messages m
+  join public.jobs j on j.id = m.job_id
+  left join public.chat_reads r on r.job_id = m.job_id and r.user_id = auth.uid()
+  where (j.created_by = auth.uid() or j.accepted_by = auth.uid())
+    and m.sender_id <> auth.uid()
+    and m.created_at > coalesce(r.last_read_at, 'epoch')
+  group by m.job_id;
+$$;

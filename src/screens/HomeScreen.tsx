@@ -12,9 +12,10 @@ type Props = {
   onQuery: (query: string) => void;
   onOpen: (id: string) => void;
   onGoPost: () => void;
+  unread: Record<string, number>;
 };
 
-export default function HomeScreen({ jobs, category, onCategory, query, onQuery, onOpen, onGoPost }: Props) {
+export default function HomeScreen({ jobs, category, onCategory, query, onQuery, onOpen, onGoPost, unread }: Props) {
   const visible = jobs.filter((job) => matchesFilters(job, category, query));
   const featured = visible.filter((job) => job.featured);
   const openCount = jobs.filter((job) => job.status === 'OPEN').length;
@@ -44,7 +45,7 @@ export default function HomeScreen({ jobs, category, onCategory, query, onQuery,
         <View>
           <SectionTitle>Featured nearby</SectionTitle>
           {featured.map((job) => (
-            <JobCard key={job.id} job={job} workerMode={false} onOpen={onOpen} onAccept={onOpen} />
+            <JobCard key={job.id} job={job} workerMode={false} onOpen={onOpen} onAccept={onOpen} unread={unread[job.id] ?? 0} />
           ))}
         </View>
       )}
@@ -54,7 +55,7 @@ export default function HomeScreen({ jobs, category, onCategory, query, onQuery,
         <EmptyCard title="No matching jobs" copy="Try another category or clear the search." />
       ) : (
         visible.map((job) => (
-          <JobCard key={job.id} job={job} workerMode={false} onOpen={onOpen} onAccept={onOpen} />
+          <JobCard key={job.id} job={job} workerMode={false} onOpen={onOpen} onAccept={onOpen} unread={unread[job.id] ?? 0} />
         ))
       )}
     </View>

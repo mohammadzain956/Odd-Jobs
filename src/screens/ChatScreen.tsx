@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { Btn, Card } from '../components';
-import { loadMessages, sendMessage, subscribeToMessages } from '../store';
+import { loadMessages, markChatRead, sendMessage, subscribeToMessages } from '../store';
 import { colors, radius } from '../theme';
 import { AuthUser, ChatMessage, Job } from '../types';
 
@@ -28,6 +28,7 @@ export default function ChatScreen({ job, user, onBack }: Props) {
     });
     const unsubscribe = subscribeToMessages(job.id, (incoming) => {
       setMessages((current) => (current.some((m) => m.id === incoming.id) ? current : [...current, incoming]));
+      void markChatRead(job.id);
     });
     return () => {
       active = false;

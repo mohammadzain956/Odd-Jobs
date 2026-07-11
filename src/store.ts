@@ -225,6 +225,56 @@ export function subscribeToMessages(jobId: string, onNew: (message: ChatMessage)
   };
 }
 
+// Listens to every chat the signed-in user participates in (row security
+// filters out everyone else's chats server-side).
+export function subscribeToInbox(onNew: (message: ChatMessage) => void): () => void {
+  if (!supabase) {
+    return () => {};
+  }
+  const channel = supabase
+    .channel('messages-inbox')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'messages' },
+      (payload) => onNew(rowToMessage(payload.new as Record<string, unknown>)),
+    )
+    .subscribe();
+  return () => {
+    void supabase?.removeChannel(channel);
+  };
+}
+
+export async function markChatRead(jobId: string): Promise<void> {
+  if (!supabase) {
+    return;
+  }
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) {
+    return;
+  }
+  const { error } = await supabase
+    .from('chat_reads')
+    .upsert({ job_id: jobId, user_id: data.user.id, last_read_at: new Date().toISOString() });
+  if (error) {
+    console.warn('Could not mark chat read:', error.message);
+  }
+}
+
+export async function loadUnreadCounts(): Promise<Record<string, number>> {
+  if (!supabase) {
+    return {};
+  }
+  const { data, error } = await supabase.rpc('unread_counts');
+  if (error || !data) {
+    return {};
+  }
+  const counts: Record<string, number> = {};
+  for (const row of data as Array<{ job_id: string; unread: number }>) {
+    counts[row.job_id] = Number(row.unread);
+  }
+  return counts;
+}
+
 export async function reportJob(id: string, reason: string): Promise<void> {
   if (!supabase) {
     return;

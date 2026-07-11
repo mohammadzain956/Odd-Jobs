@@ -23,9 +23,10 @@ type Props = {
   onComplete: (id: string) => void;
   onReport: (id: string, reason: string) => void;
   onChat: (id: string) => void;
+  unread: number;
 };
 
-export default function DetailScreen({ job, onBack, onAccept, onStart, onComplete, onReport, onChat }: Props) {
+export default function DetailScreen({ job, onBack, onAccept, onStart, onComplete, onReport, onChat, unread }: Props) {
   const status = statusStyle(job.status);
   const [reporting, setReporting] = useState(false);
 
@@ -80,9 +81,10 @@ export default function DetailScreen({ job, onBack, onAccept, onStart, onComplet
           {job.status === 'IN_PROGRESS' && <Btn label="Mark complete" onPress={() => onComplete(job.id)} />}
           <View style={styles.secondaryRow}>
             <Btn
-              label="Chat"
+              label={unread > 0 ? `Chat (${unread} new)` : 'Chat'}
               onPress={() => onChat(job.id)}
-              outline
+              color={colors.action}
+              outline={unread === 0}
               small
               style={styles.secondaryBtn}
             />

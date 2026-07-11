@@ -141,11 +141,13 @@ export function JobCard({
   workerMode,
   onOpen,
   onAccept,
+  unread = 0,
 }: {
   job: Job;
   workerMode: boolean;
   onOpen: (id: string) => void;
   onAccept: (id: string) => void;
+  unread?: number;
 }) {
   const status = statusStyle(job.status);
   const urgency = urgencyStyle(job.urgency);
@@ -161,6 +163,7 @@ export function JobCard({
         </View>
         <Text style={styles.jobDetails}>{shorten(job.details, 120)}</Text>
         <View style={styles.badgeRow}>
+          {unread > 0 && <Pill label={`${unread} new`} bg={colors.action} color={colors.card} />}
           <Pill label={status.label} bg={status.bg} color={status.fg} />
           <Pill label={job.urgency} bg={urgency.bg} color={urgency.fg} />
           {job.moderationStatus === 'pending' && <Pill label="In review" bg={colors.softGold} color={colors.gold} />}

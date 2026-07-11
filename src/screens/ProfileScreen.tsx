@@ -8,6 +8,7 @@ import { AuthUser, Job } from '../types';
 type Props = {
   user: AuthUser | null;
   jobs: Job[];
+  unread: Record<string, number>;
   onOpen: (id: string) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
@@ -15,7 +16,7 @@ type Props = {
   onSignOut: () => void;
 };
 
-export default function ProfileScreen({ user, jobs, onOpen, onEdit, onDelete, onGoLogin, onSignOut }: Props) {
+export default function ProfileScreen({ user, jobs, unread, onOpen, onEdit, onDelete, onGoLogin, onSignOut }: Props) {
   const [confirmDeleteId, setConfirmDeleteId] = useState('');
 
   if (remoteEnabled && !user) {
@@ -63,6 +64,9 @@ export default function ProfileScreen({ user, jobs, onOpen, onEdit, onDelete, on
             <Card key={job.id} style={styles.postCard}>
               <View style={styles.postTop}>
                 <Text style={styles.postTitle}>{job.title}</Text>
+                {(unread[job.id] ?? 0) > 0 && (
+                  <Pill label={`${unread[job.id]} new`} bg={colors.action} color={colors.card} />
+                )}
                 <Pill label={status.label} bg={status.bg} color={status.fg} />
               </View>
               {job.moderationStatus === 'pending' && (

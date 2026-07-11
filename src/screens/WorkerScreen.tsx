@@ -11,9 +11,10 @@ type Props = {
   onCategory: (category: string) => void;
   onOpen: (id: string) => void;
   onAccept: (id: string) => void;
+  unread: Record<string, number>;
 };
 
-export default function WorkerScreen({ jobs, category, onCategory, onOpen, onAccept }: Props) {
+export default function WorkerScreen({ jobs, category, onCategory, onOpen, onAccept, unread }: Props) {
   const openJobs = jobs.filter((job) => job.status === 'OPEN');
   const openVisible = openJobs.filter((job) => matchesFilters(job, category, ''));
   const acceptedJobs = jobs.filter((job) => job.status === 'ACCEPTED' || job.status === 'IN_PROGRESS');
@@ -41,7 +42,7 @@ export default function WorkerScreen({ jobs, category, onCategory, onOpen, onAcc
         <EmptyCard title="No open work here" copy="Try another category or check back later." />
       ) : (
         openVisible.map((job) => (
-          <JobCard key={job.id} job={job} workerMode onOpen={onOpen} onAccept={onAccept} />
+          <JobCard key={job.id} job={job} workerMode onOpen={onOpen} onAccept={onAccept} unread={unread[job.id] ?? 0} />
         ))
       )}
 
@@ -49,7 +50,7 @@ export default function WorkerScreen({ jobs, category, onCategory, onOpen, onAcc
         <View>
           <SectionTitle>Your accepted jobs</SectionTitle>
           {acceptedJobs.map((job) => (
-            <JobCard key={job.id} job={job} workerMode onOpen={onOpen} onAccept={onAccept} />
+            <JobCard key={job.id} job={job} workerMode onOpen={onOpen} onAccept={onAccept} unread={unread[job.id] ?? 0} />
           ))}
         </View>
       )}
