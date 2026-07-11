@@ -18,14 +18,17 @@ import {
   markChatRead,
   persistLocal,
   remoteEnabled,
+  removeCurrentPushToken,
   reportJob,
   saveJobPatch,
+  savePushToken,
   signOutUser,
   submitJob,
   subscribeToInbox,
   updateJobFields,
 } from './src/store';
 import { detectCity } from './src/location';
+import { getPushToken, onNotificationTap } from './src/push';
 import { colors, radius } from './src/theme';
 import { AuthUser, Job, JobDraft, Screen } from './src/types';
 
@@ -87,6 +90,20 @@ export default function App() {
     if (!remoteEnabled || !user) {
       return;
     }
+    getPushToken().then((token) => {
+      if (token) {
+        void savePushToken(token);
+      }
+    });
+    const offTap = onNotificationTap((data) => {
+      const jobId = typeof data.jobId === 'string' ? data.jobId : '';
+      if (jobId) {
+        setUnread((current) => ({ ...current, [jobId]: 0 }));
+        void markChatRead(jobId);
+        setSelectedId(jobId);
+        setScreen(data.kind === 'message' ? 'chat' : 'detail');
+      }
+    });
     loadUnreadCounts().then(setUnread);
     const unsubscribe = subscribeToInbox((message) => {
       if (message.senderId === user.id || activeChatId.current === message.jobId) {
@@ -95,7 +112,10 @@ export default function App() {
       setUnread((current) => ({ ...current, [message.jobId]: (current[message.jobId] ?? 0) + 1 }));
       notify(`New message from ${message.senderName}`);
     });
-    return unsubscribe;
+    return () => {
+      offTap();
+      unsubscribe();
+    };
   }, [user?.id]);
 
   const notify = (message: string) => {
@@ -246,7 +266,7 @@ export default function App() {
   };
 
   const handleSignOut = () => {
-    void signOutUser();
+    void removeCurrentPushToken().then(() => signOutUser());
     setUser(null);
     notify('Signed out');
   };
@@ -262,7 +282,7 @@ export default function App() {
   const editingJob = jobs.find((job) => job.id === editingId);
 
   useEffect(() => {
-    if (ready && screen === 'detail' && !selectedJob) {
+    if (ready && (screen === 'detail' || screen === 'chat') && !selectedJob) {
       setScreen('home');
     }
   }, [ready, screen, selectedJob]);

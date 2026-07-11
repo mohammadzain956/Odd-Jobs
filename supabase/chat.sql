@@ -58,6 +58,20 @@ create policy "update own chat reads"
   on public.chat_reads for update
   using (user_id = auth.uid());
 
+-- Expo push notification tokens, one row per device.
+create table public.push_tokens (
+  token text primary key,
+  user_id uuid not null references auth.users (id),
+  created_at timestamptz not null default now()
+);
+
+alter table public.push_tokens enable row level security;
+
+create policy "manage own push tokens"
+  on public.push_tokens for all
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
 -- Unread message count per job for the signed-in user.
 create or replace function public.unread_counts()
 returns table (job_id uuid, unread bigint)

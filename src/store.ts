@@ -79,6 +79,10 @@ export async function saveJobPatch(id: string, patch: Partial<Job>): Promise<voi
   const { error } = await supabase.from('jobs').update(row).eq('id', id);
   if (error) {
     console.warn('Could not update job:', error.message);
+    return;
+  }
+  if (patch.status === 'ACCEPTED') {
+    void supabase.functions.invoke('push', { body: { jobId: id, kind: 'accepted' } });
   }
 }
 
@@ -112,6 +116,31 @@ export async function deleteJob(id: string): Promise<void> {
   if (error) {
     console.warn('Could not delete post:', error.message);
   }
+}
+
+let currentPushToken: string | null = null;
+
+export async function savePushToken(token: string): Promise<void> {
+  if (!supabase) {
+    return;
+  }
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) {
+    return;
+  }
+  currentPushToken = token;
+  const { error } = await supabase.from('push_tokens').upsert({ token, user_id: data.user.id });
+  if (error) {
+    console.warn('Could not save push token:', error.message);
+  }
+}
+
+export async function removeCurrentPushToken(): Promise<void> {
+  if (!supabase || !currentPushToken) {
+    return;
+  }
+  await supabase.from('push_tokens').delete().eq('token', currentPushToken);
+  currentPushToken = null;
 }
 
 function toAuthUser(user: User): AuthUser {
@@ -212,6 +241,7 @@ export async function sendMessage(jobId: string, body: string): Promise<ChatMess
     console.warn('Could not send message:', error.message);
     return null;
   }
+  void supabase.functions.invoke('push', { body: { jobId, kind: 'message', preview: body } });
   return rowToMessage(data);
 }
 
