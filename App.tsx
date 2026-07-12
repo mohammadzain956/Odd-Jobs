@@ -11,6 +11,7 @@ import PostScreen from './src/screens/PostScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import WorkerScreen from './src/screens/WorkerScreen';
 import {
+  changeJobStatus,
   deleteJob,
   getSessionUser,
   loadJobs,
@@ -20,7 +21,6 @@ import {
   remoteEnabled,
   removeCurrentPushToken,
   reportJob,
-  saveJobPatch,
   savePushToken,
   signOutUser,
   submitJob,
@@ -143,9 +143,28 @@ export default function App() {
     }
   };
 
-  const patchJob = (id: string, patch: Partial<Job>) => {
+  const patchLocal = (id: string, patch: Partial<Job>) => {
     updateJobs(jobs.map((job) => (job.id === id ? { ...job, ...patch } : job)));
-    void saveJobPatch(id, patch);
+  };
+
+  // The server decides whether a status change is allowed; if it refuses, the
+  // list is reloaded so the screen shows the real state rather than a guess.
+  const applyStatus = async (
+    id: string,
+    action: 'accept' | 'start' | 'complete',
+    optimistic: Partial<Job>,
+    successMessage: string,
+  ) => {
+    patchLocal(id, optimistic);
+    const result = await changeJobStatus(id, action);
+    if (!result.ok) {
+      notify('That is no longer possible. Refreshing.');
+      if (remoteEnabled) {
+        loadJobs().then(setJobs);
+      }
+      return;
+    }
+    notify(successMessage);
   };
 
   const openDetail = (id: string) => {
@@ -165,9 +184,13 @@ export default function App() {
 
   const postJob = async (draft: JobDraft) => {
     if (editingId) {
-      updateJobs(jobs.map((job) => (job.id === editingId ? { ...job, ...draft } : job)));
-      void updateJobFields(editingId, draft);
-      notify('Post updated');
+      const result = await updateJobFields(editingId, draft);
+      if (result.verdict === 'rejected') {
+        notify(`Not saved: ${result.reason}`);
+        return;
+      }
+      updateJobs(jobs.map((job) => (job.id === editingId ? result.job : job)));
+      notify(result.verdict === 'pending' ? 'Edit submitted for review' : 'Post updated');
       const id = editingId;
       setEditingId('');
       openDetail(id);
@@ -187,29 +210,27 @@ export default function App() {
     if (requireLogin(screen, 'Log in to accept jobs')) {
       return;
     }
-    patchJob(id, {
-      status: 'ACCEPTED',
-      workerName: user?.name ?? 'You',
-      acceptedBy: user?.id ?? '',
-      acceptedAt: Date.now(),
-    });
-    notify('Job accepted');
+    void applyStatus(
+      id,
+      'accept',
+      { status: 'ACCEPTED', workerName: user?.name ?? 'You', acceptedBy: user?.id ?? '', acceptedAt: Date.now() },
+      'Job accepted',
+    );
     openDetail(id);
   };
 
   const startJob = (id: string) => {
-    patchJob(id, { status: 'IN_PROGRESS' });
-    notify('Job marked in progress');
+    void applyStatus(id, 'start', { status: 'IN_PROGRESS' }, 'Job marked in progress');
   };
 
   const completeJob = (id: string) => {
-    patchJob(id, { status: 'COMPLETED', completedAt: Date.now() });
-    notify('Job completed');
+    void applyStatus(id, 'complete', { status: 'COMPLETED', completedAt: Date.now() }, 'Job completed');
   };
 
   const handleReport = (id: string, reason: string) => {
-    void reportJob(id, reason);
-    notify('Thanks. Our team will review this post.');
+    void reportJob(id, reason).then((result) => {
+      notify(result.ok ? 'Thanks. Our team will review this post.' : (result.message ?? 'Could not send the report.'));
+    });
   };
 
   const changeCityFilter = (city: string) => {

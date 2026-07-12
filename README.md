@@ -39,6 +39,21 @@ supabase/schema.sql      Database tables, security policies, sample jobs
 supabase/functions/      create-job edge function (AI moderation with Claude)
 ```
 
+## Security model
+
+- Row Level Security is on for every table. The app's public key can only do
+  what the policies allow; the powerful service-role key lives only inside the
+  edge functions, never in the app.
+- Jobs cannot be inserted or updated by clients at all. Posting and editing go
+  through the `create-job` function (which moderates first); accepting, starting,
+  and completing go through database functions that check the caller and the
+  legal transition. This blocks post hijacking, moderation bypass, and job theft.
+- Chat is readable and writable only by the job's poster and its accepted worker,
+  enforced in the database - a third party cannot read, inject, or forge messages.
+- Photos: 5 MB and image-only, each user restricted to their own upload folder.
+- Abuse limits: 10 posts per user per hour, one report per user per post,
+  message length capped. See `supabase/security.sql`.
+
 ## Going online (Supabase setup, ~20 minutes)
 
 1. Create a free account at supabase.com and create a new project.

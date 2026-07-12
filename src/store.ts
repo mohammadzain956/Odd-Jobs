@@ -29,19 +29,42 @@ export function matchesFilters(job: Job, category: string, query: string, city: 
   return `${job.title} ${job.details} ${job.category} ${job.location} ${job.city}`.toLowerCase().includes(trimmed);
 }
 
+// Loads the newest slice of the public feed plus everything the signed-in user
+// is involved in, so their own posts and accepted jobs are always present even
+// once the feed grows past the page limit.
 export async function loadJobs(): Promise<Job[]> {
-  if (supabase) {
-    const { data, error } = await supabase
-      .from('jobs')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) {
-      console.warn('Could not load jobs:', error.message);
-      return [];
-    }
-    return (data ?? []).map(rowToJob);
+  if (!supabase) {
+    return loadLocalJobs();
   }
-  return loadLocalJobs();
+  const feedQuery = supabase
+    .from('jobs')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  const mineQuery = userId
+    ? supabase
+        .from('jobs')
+        .select('*')
+        .or(`created_by.eq.${userId},accepted_by.eq.${userId}`)
+        .order('created_at', { ascending: false })
+        .limit(200)
+    : null;
+
+  const [feed, mine] = await Promise.all([feedQuery, mineQuery]);
+  if (feed.error) {
+    console.warn('Could not load jobs:', feed.error.message);
+    return [];
+  }
+
+  const byId = new Map<string, Job>();
+  for (const row of [...(feed.data ?? []), ...(mine?.data ?? [])]) {
+    const job = rowToJob(row);
+    byId.set(job.id, job);
+  }
+  return [...byId.values()].sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export async function submitJob(draft: JobDraft): Promise<SubmitResult> {
@@ -63,49 +86,41 @@ export async function submitJob(draft: JobDraft): Promise<SubmitResult> {
   return { verdict: 'approved', job: createLocalJob(draft) };
 }
 
-export async function saveJobPatch(id: string, patch: Partial<Job>): Promise<void> {
+// Status changes go through database functions that enforce who may make each
+// transition; clients have no direct update rights on jobs.
+export async function changeJobStatus(
+  id: string,
+  action: 'accept' | 'start' | 'complete',
+): Promise<{ ok: boolean; message?: string }> {
   if (!supabase) {
-    return;
+    return { ok: true };
   }
-  const row: Record<string, unknown> = {};
-  if (patch.status !== undefined) row.status = patch.status;
-  if (patch.workerName !== undefined) row.worker_name = patch.workerName;
-  if (patch.acceptedAt !== undefined) row.accepted_at = new Date(patch.acceptedAt).toISOString();
-  if (patch.completedAt !== undefined) row.completed_at = new Date(patch.completedAt).toISOString();
-  if (patch.status === 'ACCEPTED') {
-    const { data } = await supabase.auth.getUser();
-    row.accepted_by = data.user?.id ?? null;
-  }
-  const { error } = await supabase.from('jobs').update(row).eq('id', id);
+  const rpc = action === 'accept' ? 'accept_job' : action === 'start' ? 'start_job' : 'complete_job';
+  const { error } = await supabase.rpc(rpc, { p_job_id: id });
   if (error) {
-    console.warn('Could not update job:', error.message);
-    return;
+    return { ok: false, message: error.message };
   }
-  if (patch.status === 'ACCEPTED') {
+  if (action === 'accept') {
     void supabase.functions.invoke('push', { body: { jobId: id, kind: 'accepted' } });
   }
+  return { ok: true };
 }
 
-export async function updateJobFields(id: string, draft: JobDraft): Promise<void> {
+// Edits run through the same moderated path as new posts.
+export async function updateJobFields(id: string, draft: JobDraft): Promise<SubmitResult> {
   if (!supabase) {
-    return;
+    return { verdict: 'approved', job: { ...createLocalJob(draft), id } };
   }
-  const { error } = await supabase
-    .from('jobs')
-    .update({
-      title: draft.title,
-      details: draft.details,
-      location: draft.location,
-      city: draft.city,
-      pay: draft.pay,
-      category: draft.category,
-      urgency: draft.urgency,
-      featured: draft.featured,
-    })
-    .eq('id', id);
-  if (error) {
-    console.warn('Could not update post:', error.message);
+  const { data, error } = await supabase.functions.invoke('create-job', {
+    body: { ...draft, jobId: id, photos: [] },
+  });
+  if (error || !data) {
+    return { verdict: 'rejected', job: null, reason: 'Could not reach the server. Try again.' };
   }
+  if (data.verdict === 'rejected') {
+    return { verdict: 'rejected', job: null, reason: data.reason };
+  }
+  return { verdict: data.verdict, job: rowToJob(data.job), reason: data.reason };
 }
 
 export async function deleteJob(id: string): Promise<void> {
@@ -231,17 +246,21 @@ export async function sendMessage(jobId: string, body: string): Promise<ChatMess
   if (!userData.user) {
     return null;
   }
+  const trimmed = body.trim().slice(0, 2000);
+  if (!trimmed) {
+    return null;
+  }
   const senderName = String(userData.user.user_metadata?.display_name ?? '').trim() || 'User';
   const { data, error } = await supabase
     .from('messages')
-    .insert({ job_id: jobId, sender_id: userData.user.id, sender_name: senderName, body })
+    .insert({ job_id: jobId, sender_id: userData.user.id, sender_name: senderName, body: trimmed })
     .select()
     .single();
   if (error) {
     console.warn('Could not send message:', error.message);
     return null;
   }
-  void supabase.functions.invoke('push', { body: { jobId, kind: 'message', preview: body } });
+  void supabase.functions.invoke('push', { body: { jobId, kind: 'message', preview: trimmed } });
   return rowToMessage(data);
 }
 
@@ -312,28 +331,48 @@ export async function loadUnreadCounts(): Promise<Record<string, number>> {
   return counts;
 }
 
-export async function reportJob(id: string, reason: string): Promise<void> {
+export async function reportJob(id: string, reason: string): Promise<{ ok: boolean; message?: string }> {
   if (!supabase) {
-    return;
+    return { ok: true };
   }
   const { data } = await supabase.auth.getUser();
+  if (!data.user) {
+    return { ok: false, message: 'Log in to report a post.' };
+  }
   const { error } = await supabase
     .from('reports')
-    .insert({ job_id: id, reason, created_by: data.user?.id ?? null });
+    .insert({ job_id: id, reason, created_by: data.user.id });
   if (error) {
-    console.warn('Could not save report:', error.message);
+    // A duplicate key means this user already reported this post.
+    return {
+      ok: false,
+      message: error.code === '23505' ? 'You already reported this post.' : 'Could not send the report.',
+    };
   }
+  return { ok: true };
 }
+
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
 async function uploadPhotos(localUris: string[]): Promise<string[]> {
   if (!supabase || localUris.length === 0) {
+    return [];
+  }
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  if (!userId) {
     return [];
   }
   const urls: string[] = [];
   for (const uri of localUris.slice(0, 5)) {
     try {
       const buffer = await fetch(uri).then((response) => response.arrayBuffer());
-      const path = `${makeId()}.jpg`;
+      if (buffer.byteLength > MAX_PHOTO_BYTES) {
+        continue;
+      }
+      // Photos live under the uploader's own folder; storage rules reject writes
+      // anywhere else, so nobody can overwrite another user's photos.
+      const path = `${userId}/${makeId()}.jpg`;
       const { error } = await supabase.storage
         .from('job-photos')
         .upload(path, buffer, { contentType: 'image/jpeg' });

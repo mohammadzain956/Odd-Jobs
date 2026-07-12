@@ -67,6 +67,7 @@ Deno.serve(async (req) => {
   }
 
   const draft = await req.json();
+  const jobId = typeof draft.jobId === "string" && draft.jobId ? draft.jobId : null;
   const title = String(draft.title ?? "").trim().slice(0, 120);
   const details = String(draft.details ?? "").trim().slice(0, 2000);
   const location = String(draft.location ?? "").trim().slice(0, 120);
@@ -79,8 +80,40 @@ Deno.serve(async (req) => {
   const photos = Array.isArray(draft.photos) ? draft.photos.slice(0, 5).map(String) : [];
   const featured = Boolean(draft.featured);
 
-  if (!title || !details || !location || !Number.isFinite(pay) || pay <= 0) {
+  if (!title || !details || !location || !Number.isFinite(pay) || pay <= 0 || pay > 10_000_000) {
     return jsonResponse({ error: "Missing or invalid fields" }, 400);
+  }
+
+  const adminClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+  // Edits must belong to the caller and only apply before work starts. Edited
+  // posts are re-moderated below - otherwise a clean post could be approved and
+  // then rewritten into something that would never have passed.
+  let existing: { created_by: string; status: string; photos: string[] } | null = null;
+  if (jobId) {
+    const { data } = await adminClient
+      .from("jobs")
+      .select("created_by, status, photos")
+      .eq("id", jobId)
+      .single();
+    if (!data || data.created_by !== userData.user.id || data.status !== "OPEN") {
+      return jsonResponse({ error: "You cannot edit this post" }, 403);
+    }
+    existing = data;
+  }
+
+  // Rate limit: caps spam and the moderation spend it would trigger.
+  const windowStart = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { count } = await adminClient
+    .from("jobs")
+    .select("id", { count: "exact", head: true })
+    .eq("created_by", userData.user.id)
+    .gte("created_at", windowStart);
+  if (!jobId && (count ?? 0) >= 10) {
+    return jsonResponse({
+      verdict: "rejected",
+      reason: "You have posted a lot in the last hour. Please try again later.",
+    });
   }
 
   // AI moderation. If no API key is configured yet, posts go live unmoderated
@@ -122,30 +155,30 @@ Deno.serve(async (req) => {
     return jsonResponse({ verdict: "rejected", reason });
   }
 
-  // Insert with the service role (bypasses RLS; inserts are blocked for clients).
-  const adminClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const { data: job, error } = await adminClient
-    .from("jobs")
-    .insert({
-      title,
-      details,
-      location,
-      city,
-      pay,
-      category,
-      urgency,
-      requester_name: requesterName,
-      featured,
-      photos,
-      moderation_status: verdict === "approve" ? "approved" : "pending",
-      moderation_reason: verdict === "approve" ? null : reason,
-      created_by: userData.user.id,
-    })
-    .select()
-    .single();
+  const row = {
+    title,
+    details,
+    location,
+    city,
+    pay,
+    category,
+    urgency,
+    requester_name: requesterName,
+    featured,
+    moderation_status: verdict === "approve" ? "approved" : "pending",
+    moderation_reason: verdict === "approve" ? null : reason,
+  };
+
+  // Written with the service role: clients cannot insert or update jobs directly,
+  // so every post and edit is forced through the moderation path above.
+  const query = jobId
+    ? adminClient.from("jobs").update({ ...row, photos: existing!.photos }).eq("id", jobId)
+    : adminClient.from("jobs").insert({ ...row, photos, created_by: userData.user.id });
+
+  const { data: job, error } = await query.select().single();
 
   if (error) {
-    console.error("Insert failed:", error);
+    console.error("Save failed:", error);
     return jsonResponse({ error: "Could not save the post" }, 500);
   }
 
