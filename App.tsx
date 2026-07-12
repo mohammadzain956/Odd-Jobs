@@ -1,7 +1,9 @@
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import AnimatedSplash from './src/AnimatedSplash';
 import { Pill } from './src/components';
 import AuthScreen from './src/screens/AuthScreen';
 import ChatScreen from './src/screens/ChatScreen';
@@ -32,6 +34,10 @@ import { getPushToken, onNotificationTap } from './src/push';
 import { colors, radius } from './src/theme';
 import { AuthUser, Job, JobDraft, Screen } from './src/types';
 
+// Hold the native splash until the app has mounted, then the animated splash
+// takes over and dismisses itself.
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 const SUBTITLES: Record<Screen, string> = {
   home: 'Local help, posted fast, picked up by nearby workers.',
   post: 'Post a clear request and get worker responses.',
@@ -61,6 +67,7 @@ export default function App() {
   const [selectedId, setSelectedId] = useState('');
   const [editingId, setEditingId] = useState('');
   const [toast, setToast] = useState('');
+  const [splashDone, setSplashDone] = useState(false);
   const [unread, setUnread] = useState<Record<string, number>>({});
   const [afterAuth, setAfterAuth] = useState<Screen>('home');
   const scrollRef = useRef<ScrollView>(null);
@@ -426,6 +433,8 @@ export default function App() {
             <Text style={styles.toastText}>{toast}</Text>
           </View>
         )}
+
+        {!splashDone && <AnimatedSplash onDone={() => setSplashDone(true)} />}
       </SafeAreaView>
     </SafeAreaProvider>
   );
