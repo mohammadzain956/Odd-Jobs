@@ -217,6 +217,21 @@ export async function signOutUser(): Promise<void> {
   await supabase?.auth.signOut();
 }
 
+// Permanently deletes the signed-in user's account. Google Play requires this to
+// be available inside the app. The server only ever deletes the caller's own
+// account - the id comes from their token, never from here.
+export async function deleteAccount(): Promise<{ ok: boolean; message?: string }> {
+  if (!supabase) {
+    return { ok: false, message: 'Account deletion needs the online backend.' };
+  }
+  const { data, error } = await supabase.functions.invoke('delete-account', { body: {} });
+  if (error || !data?.ok) {
+    return { ok: false, message: 'Could not delete your account. Try again.' };
+  }
+  await supabase.auth.signOut();
+  return { ok: true };
+}
+
 function rowToMessage(row: Record<string, unknown>): ChatMessage {
   return {
     id: String(row.id),

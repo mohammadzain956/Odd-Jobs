@@ -1,3 +1,4 @@
+
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
@@ -15,6 +16,7 @@ import UserScreen from './src/screens/UserScreen';
 import WorkerScreen from './src/screens/WorkerScreen';
 import {
   changeJobStatus,
+  deleteAccount,
   deleteJob,
   getSessionUser,
   loadFavorites,
@@ -379,6 +381,21 @@ export default function App() {
     notify('Signed out');
   };
 
+  const handleDeleteAccount = () => {
+    void removeCurrentPushToken()
+      .then(() => deleteAccount())
+      .then((result) => {
+        if (!result.ok) {
+          notify(result.message ?? 'Could not delete your account.');
+          return;
+        }
+        setUser(null);
+        setScreen('home');
+        notify('Your account has been deleted');
+        loadJobs().then(setJobs);
+      });
+  };
+
   const handleAuthDone = (signedIn: AuthUser) => {
     setUser(signedIn);
     setScreen(afterAuth);
@@ -509,6 +526,7 @@ export default function App() {
                 setScreen('auth');
               }}
               onSignOut={handleSignOut}
+              onDeleteAccount={handleDeleteAccount}
             />
           )}
           {screen === 'auth' && <AuthScreen onDone={handleAuthDone} notify={notify} />}

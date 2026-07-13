@@ -19,6 +19,7 @@ type Props = {
   onOpenUser: (userId: string) => void;
   onGoLogin: () => void;
   onSignOut: () => void;
+  onDeleteAccount: () => void;
 };
 
 export default function ProfileScreen({
@@ -34,8 +35,10 @@ export default function ProfileScreen({
   onOpenUser,
   onGoLogin,
   onSignOut,
+  onDeleteAccount,
 }: Props) {
   const [confirmDeleteId, setConfirmDeleteId] = useState('');
+  const [confirmCloseAccount, setConfirmCloseAccount] = useState(false);
 
   if (remoteEnabled && !user) {
     return (
@@ -150,6 +153,40 @@ export default function ProfileScreen({
           />
         ))
       )}
+
+      {remoteEnabled && user && (
+        <Card style={styles.dangerCard}>
+          <Text style={styles.dangerTitle}>Delete your account</Text>
+          <Text style={styles.copy}>
+            This removes your account, your saved jobs, your reviews, your messages, and your photos. Jobs you are
+            still working on with someone else stay on their side, with your name removed. This cannot be undone.
+          </Text>
+          <Btn
+            label={confirmCloseAccount ? 'Confirm: permanently delete my account' : 'Delete my account'}
+            onPress={() => {
+              if (confirmCloseAccount) {
+                setConfirmCloseAccount(false);
+                onDeleteAccount();
+              } else {
+                setConfirmCloseAccount(true);
+              }
+            }}
+            color={colors.action}
+            outline={!confirmCloseAccount}
+            small
+            style={styles.mainButton}
+          />
+          {confirmCloseAccount && (
+            <Btn
+              label="Keep my account"
+              onPress={() => setConfirmCloseAccount(false)}
+              color={colors.ink}
+              small
+              style={styles.signOut}
+            />
+          )}
+        </Card>
+      )}
     </View>
   );
 }
@@ -223,5 +260,14 @@ const styles = StyleSheet.create({
   },
   postButton: {
     flex: 1,
+  },
+  dangerCard: {
+    borderColor: colors.action,
+    marginTop: 24,
+  },
+  dangerTitle: {
+    color: colors.action,
+    fontSize: 18,
+    fontWeight: '700',
   },
 });
