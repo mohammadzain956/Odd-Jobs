@@ -5,6 +5,7 @@ import { supabase } from './supabase';
 import { AuthUser, ChatMessage, Job, JobDraft, SubmitResult } from './types';
 
 const JOBS_KEY = 'odd_jobs_store.jobs';
+const FAVORITES_KEY = 'odd_jobs_store.favorites';
 
 export { remoteEnabled };
 
@@ -331,6 +332,55 @@ export async function loadUnreadCounts(): Promise<Record<string, number>> {
   return counts;
 }
 
+// Saved jobs. A save is private to the user who made it: the table's policies
+// only ever expose your own rows, so no one can see what anyone else saved.
+export async function loadFavorites(): Promise<string[]> {
+  if (!supabase) {
+    return loadLocalFavorites();
+  }
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) {
+    return [];
+  }
+  const { data, error } = await supabase.from('favorites').select('job_id');
+  if (error) {
+    console.warn('Could not load saved jobs:', error.message);
+    return [];
+  }
+  return (data ?? []).map((row) => String(row.job_id));
+}
+
+export async function setFavorite(jobId: string, saved: boolean): Promise<boolean> {
+  if (!supabase) {
+    const current = await loadLocalFavorites();
+    const next = saved ? [...new Set([...current, jobId])] : current.filter((id) => id !== jobId);
+    await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
+    return true;
+  }
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) {
+    return false;
+  }
+  const { error } = saved
+    ? await supabase.from('favorites').upsert({ user_id: userData.user.id, job_id: jobId })
+    : await supabase.from('favorites').delete().eq('user_id', userData.user.id).eq('job_id', jobId);
+  if (error) {
+    console.warn('Could not update saved job:', error.message);
+    return false;
+  }
+  return true;
+}
+
+async function loadLocalFavorites(): Promise<string[]> {
+  try {
+    const raw = await AsyncStorage.getItem(FAVORITES_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function reportJob(id: string, reason: string): Promise<{ ok: boolean; message?: string }> {
   if (!supabase) {
     return { ok: true };
@@ -418,10 +468,11 @@ function rowToJob(row: Record<string, unknown>): Job {
   };
 }
 
-function createLocalJob(draft: JobDraft): Job {
+function createLocalJob(draft: JobDraft, featured = false): Job {
   return {
     ...draft,
     id: makeId(),
+    featured,
     status: 'OPEN',
     workerName: '',
     createdAt: Date.now(),
@@ -495,6 +546,9 @@ function seedJobs(): Job[] {
   ];
 
   return samples.map(([title, details, location, city, pay, category, urgency, featured]) =>
-    createLocalJob({ title, details, location, city, pay, category, urgency, featured, photos: [], requesterName: 'Verified customer' }),
+    createLocalJob(
+      { title, details, location, city, pay, category, urgency, photos: [], requesterName: 'Verified customer' },
+      featured,
+    ),
   );
 }

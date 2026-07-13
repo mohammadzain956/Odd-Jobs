@@ -23,10 +23,23 @@ type Props = {
   onComplete: (id: string) => void;
   onReport: (id: string, reason: string) => void;
   onChat: (id: string) => void;
+  onToggleSave: (id: string) => void;
+  saved: boolean;
   unread: number;
 };
 
-export default function DetailScreen({ job, onBack, onAccept, onStart, onComplete, onReport, onChat, unread }: Props) {
+export default function DetailScreen({
+  job,
+  onBack,
+  onAccept,
+  onStart,
+  onComplete,
+  onReport,
+  onChat,
+  onToggleSave,
+  saved,
+  unread,
+}: Props) {
   const status = statusStyle(job.status);
   const [reporting, setReporting] = useState(false);
 
@@ -81,6 +94,14 @@ export default function DetailScreen({ job, onBack, onAccept, onStart, onComplet
               onPress={() => onChat(job.id)}
               color={colors.action}
               outline={unread === 0}
+              small
+              style={styles.secondaryBtn}
+            />
+            <Btn
+              label={saved ? 'Saved' : 'Save'}
+              onPress={() => onToggleSave(job.id)}
+              color={colors.brand}
+              outline={!saved}
               small
               style={styles.secondaryBtn}
             />

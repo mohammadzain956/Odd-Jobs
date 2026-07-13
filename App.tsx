@@ -16,6 +16,7 @@ import {
   changeJobStatus,
   deleteJob,
   getSessionUser,
+  loadFavorites,
   loadJobs,
   loadUnreadCounts,
   markChatRead,
@@ -24,6 +25,7 @@ import {
   removeCurrentPushToken,
   reportJob,
   savePushToken,
+  setFavorite,
   signOutUser,
   submitJob,
   subscribeToInbox,
@@ -69,6 +71,7 @@ export default function App() {
   const [toast, setToast] = useState('');
   const [splashDone, setSplashDone] = useState(false);
   const [unread, setUnread] = useState<Record<string, number>>({});
+  const [saved, setSaved] = useState<Record<string, boolean>>({});
   const [afterAuth, setAfterAuth] = useState<Screen>('home');
   const scrollRef = useRef<ScrollView>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -81,6 +84,18 @@ export default function App() {
       setReady(true);
     });
   }, []);
+
+  // Saved jobs belong to the account, so reload them whenever the user changes
+  // (including sign-out, which clears the list).
+  useEffect(() => {
+    if (remoteEnabled && !user) {
+      setSaved({});
+      return;
+    }
+    loadFavorites().then((ids) => {
+      setSaved(Object.fromEntries(ids.map((id) => [id, true])));
+    });
+  }, [user?.id]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -234,6 +249,23 @@ export default function App() {
     void applyStatus(id, 'complete', { status: 'COMPLETED', completedAt: Date.now() }, 'Job completed');
   };
 
+  // Optimistic: the toggle flips immediately, and reverts if the server refuses.
+  const handleToggleSave = (id: string) => {
+    if (requireLogin(screen === 'detail' ? 'detail' : screen, 'Log in to save jobs')) {
+      return;
+    }
+    const next = !saved[id];
+    setSaved((current) => ({ ...current, [id]: next }));
+    void setFavorite(id, next).then((ok) => {
+      if (!ok) {
+        setSaved((current) => ({ ...current, [id]: !next }));
+        notify('Could not update your saved jobs.');
+        return;
+      }
+      notify(next ? 'Saved to your list' : 'Removed from saved');
+    });
+  };
+
   const handleReport = (id: string, reason: string) => {
     void reportJob(id, reason).then((result) => {
       notify(result.ok ? 'Thanks. Our team will review this post.' : (result.message ?? 'Could not send the report.'));
@@ -369,6 +401,8 @@ export default function App() {
               onQuery={setQuery}
               onOpen={openDetail}
               onGoPost={() => openNav('post')}
+              onToggleSave={handleToggleSave}
+              saved={saved}
               unread={unread}
             />
           )}
@@ -392,6 +426,8 @@ export default function App() {
               onNearMe={() => void handleNearMe()}
               onOpen={openDetail}
               onAccept={acceptJob}
+              onToggleSave={handleToggleSave}
+              saved={saved}
               unread={unread}
             />
           )}
@@ -400,9 +436,11 @@ export default function App() {
               user={user}
               jobs={jobs}
               unread={unread}
+              saved={saved}
               onOpen={openDetail}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onToggleSave={handleToggleSave}
               onGoLogin={() => {
                 setAfterAuth('profile');
                 setScreen('auth');
@@ -420,6 +458,8 @@ export default function App() {
               onComplete={completeJob}
               onReport={handleReport}
               onChat={handleChat}
+              onToggleSave={handleToggleSave}
+              saved={saved[selectedJob.id] ?? false}
               unread={unread[selectedJob.id] ?? 0}
             />
           )}

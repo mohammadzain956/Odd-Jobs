@@ -17,6 +17,8 @@ type Props = {
   onQuery: (query: string) => void;
   onOpen: (id: string) => void;
   onGoPost: () => void;
+  onToggleSave: (id: string) => void;
+  saved: Record<string, boolean>;
   unread: Record<string, number>;
 };
 
@@ -33,6 +35,8 @@ export default function HomeScreen({
   onQuery,
   onOpen,
   onGoPost,
+  onToggleSave,
+  saved,
   unread,
 }: Props) {
   const visible = jobs.filter((job) => matchesFilters(job, category, query, city, area));
@@ -66,7 +70,16 @@ export default function HomeScreen({
         <View>
           <SectionTitle>Featured nearby</SectionTitle>
           {featured.map((job) => (
-            <JobCard key={job.id} job={job} workerMode={false} onOpen={onOpen} onAccept={onOpen} unread={unread[job.id] ?? 0} />
+            <JobCard
+              key={job.id}
+              job={job}
+              workerMode={false}
+              onOpen={onOpen}
+              onAccept={onOpen}
+              onToggleSave={onToggleSave}
+              saved={saved[job.id] ?? false}
+              unread={unread[job.id] ?? 0}
+            />
           ))}
         </View>
       )}
@@ -76,7 +89,16 @@ export default function HomeScreen({
         <EmptyCard title="No matching jobs" copy="Try another category or clear the search." />
       ) : (
         visible.map((job) => (
-          <JobCard key={job.id} job={job} workerMode={false} onOpen={onOpen} onAccept={onOpen} unread={unread[job.id] ?? 0} />
+          <JobCard
+            key={job.id}
+            job={job}
+            workerMode={false}
+            onOpen={onOpen}
+            onAccept={onOpen}
+            onToggleSave={onToggleSave}
+            saved={saved[job.id] ?? false}
+            unread={unread[job.id] ?? 0}
+          />
         ))
       )}
     </View>

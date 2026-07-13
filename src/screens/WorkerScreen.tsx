@@ -16,6 +16,8 @@ type Props = {
   onNearMe: () => void;
   onOpen: (id: string) => void;
   onAccept: (id: string) => void;
+  onToggleSave: (id: string) => void;
+  saved: Record<string, boolean>;
   unread: Record<string, number>;
 };
 
@@ -30,6 +32,8 @@ export default function WorkerScreen({
   onNearMe,
   onOpen,
   onAccept,
+  onToggleSave,
+  saved,
   unread,
 }: Props) {
   const openJobs = jobs.filter((job) => job.status === 'OPEN');
@@ -61,7 +65,16 @@ export default function WorkerScreen({
         <EmptyCard title="No open work here" copy="Try another category or check back later." />
       ) : (
         openVisible.map((job) => (
-          <JobCard key={job.id} job={job} workerMode onOpen={onOpen} onAccept={onAccept} unread={unread[job.id] ?? 0} />
+          <JobCard
+            key={job.id}
+            job={job}
+            workerMode
+            onOpen={onOpen}
+            onAccept={onAccept}
+            onToggleSave={onToggleSave}
+            saved={saved[job.id] ?? false}
+            unread={unread[job.id] ?? 0}
+          />
         ))
       )}
 

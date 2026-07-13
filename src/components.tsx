@@ -176,12 +176,16 @@ export function JobCard({
   workerMode,
   onOpen,
   onAccept,
+  onToggleSave,
+  saved = false,
   unread = 0,
 }: {
   job: Job;
   workerMode: boolean;
   onOpen: (id: string) => void;
   onAccept: (id: string) => void;
+  onToggleSave?: (id: string) => void;
+  saved?: boolean;
   unread?: number;
 }) {
   const status = statusStyle(job.status);
@@ -206,6 +210,16 @@ export function JobCard({
         </View>
         <View style={styles.actionRow}>
           <Btn label="Details" onPress={() => onOpen(job.id)} outline small style={styles.actionBtn} />
+          {onToggleSave && (
+            <Btn
+              label={saved ? 'Saved' : 'Save'}
+              onPress={() => onToggleSave(job.id)}
+              color={colors.brand}
+              outline={!saved}
+              small
+              style={styles.actionBtn}
+            />
+          )}
           {workerMode && job.status === 'OPEN' && (
             <Btn label="Accept" onPress={() => onAccept(job.id)} color={colors.action} small style={styles.actionBtn} />
           )}

@@ -41,9 +41,11 @@ export type SubmitResult =
   | { verdict: 'approved' | 'pending'; job: Job; reason?: string }
   | { verdict: 'rejected'; job: null; reason: string };
 
+// Note: `featured` is deliberately NOT part of the draft. It is a paid placement,
+// so only the server may set it - never the client. See supabase/functions/create-job.
 export type JobDraft = Pick<
   Job,
-  'title' | 'details' | 'location' | 'city' | 'pay' | 'category' | 'urgency' | 'featured' | 'photos' | 'requesterName'
+  'title' | 'details' | 'location' | 'city' | 'pay' | 'category' | 'urgency' | 'photos' | 'requesterName'
 >;
 
 export type Screen = 'home' | 'post' | 'worker' | 'detail' | 'profile' | 'auth' | 'chat';

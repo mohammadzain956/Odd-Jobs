@@ -78,7 +78,9 @@ Deno.serve(async (req) => {
   const accountName = String(userData.user.user_metadata?.display_name ?? "").trim();
   const requesterName = (accountName || String(draft.requesterName ?? "Customer").trim()).slice(0, 60) || "Customer";
   const photos = Array.isArray(draft.photos) ? draft.photos.slice(0, 5).map(String) : [];
-  const featured = Boolean(draft.featured);
+  // `featured` is a paid placement and is never taken from the request body. New
+  // posts default to false in the database; edits leave the column untouched. Only
+  // a verified payment (or an admin) may set it.
 
   if (!title || !details || !location || !Number.isFinite(pay) || pay <= 0 || pay > 10_000_000) {
     return jsonResponse({ error: "Missing or invalid fields" }, 400);
@@ -164,7 +166,6 @@ Deno.serve(async (req) => {
     category,
     urgency,
     requester_name: requesterName,
-    featured,
     moderation_status: verdict === "approve" ? "approved" : "pending",
     moderation_reason: verdict === "approve" ? null : reason,
   };

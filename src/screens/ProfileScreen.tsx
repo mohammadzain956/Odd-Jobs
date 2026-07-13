@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Btn, Card, EmptyCard, Pill, SectionTitle, statusStyle } from '../components';
+import { Btn, Card, EmptyCard, JobCard, Pill, SectionTitle, statusStyle } from '../components';
 import { remoteEnabled } from '../store';
 import { colors } from '../theme';
 import { AuthUser, Job } from '../types';
@@ -9,14 +9,27 @@ type Props = {
   user: AuthUser | null;
   jobs: Job[];
   unread: Record<string, number>;
+  saved: Record<string, boolean>;
   onOpen: (id: string) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  onToggleSave: (id: string) => void;
   onGoLogin: () => void;
   onSignOut: () => void;
 };
 
-export default function ProfileScreen({ user, jobs, unread, onOpen, onEdit, onDelete, onGoLogin, onSignOut }: Props) {
+export default function ProfileScreen({
+  user,
+  jobs,
+  unread,
+  saved,
+  onOpen,
+  onEdit,
+  onDelete,
+  onToggleSave,
+  onGoLogin,
+  onSignOut,
+}: Props) {
   const [confirmDeleteId, setConfirmDeleteId] = useState('');
 
   if (remoteEnabled && !user) {
@@ -32,6 +45,7 @@ export default function ProfileScreen({ user, jobs, unread, onOpen, onEdit, onDe
   }
 
   const myPosts = remoteEnabled ? jobs.filter((job) => job.createdBy === user?.id) : jobs;
+  const savedJobs = jobs.filter((job) => saved[job.id]);
 
   const handleDelete = (id: string) => {
     if (confirmDeleteId === id) {
@@ -86,6 +100,24 @@ export default function ProfileScreen({ user, jobs, unread, onOpen, onEdit, onDe
             </Card>
           );
         })
+      )}
+
+      <SectionTitle>Saved jobs</SectionTitle>
+      {savedJobs.length === 0 ? (
+        <EmptyCard title="Nothing saved yet" copy="Tap Save on a job to keep it here and come back to it later." />
+      ) : (
+        savedJobs.map((job) => (
+          <JobCard
+            key={job.id}
+            job={job}
+            workerMode={false}
+            onOpen={onOpen}
+            onAccept={onOpen}
+            onToggleSave={onToggleSave}
+            saved
+            unread={unread[job.id] ?? 0}
+          />
+        ))
       )}
     </View>
   );

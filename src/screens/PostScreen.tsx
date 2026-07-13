@@ -1,6 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Btn, Bullet, Card, ChipRow, Field } from '../components';
 import { parsePay } from '../format';
 import { areasFor, CITY_NAMES, OTHER_AREA } from '../locations';
@@ -32,7 +32,6 @@ export default function PostScreen({ onSubmit, initial, accountName }: Props) {
   const [category, setCategory] = useState<string>(initial?.category ?? CATEGORIES[0]);
   const [urgency, setUrgency] = useState<string>(initial?.urgency ?? URGENCIES[0]);
   const [photos, setPhotos] = useState<string[]>([]);
-  const [featured, setFeatured] = useState(initial?.featured ?? false);
   const [requester, setRequester] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ title?: string; details?: string; location?: string; pay?: string }>({});
@@ -91,7 +90,6 @@ export default function PostScreen({ onSubmit, initial, accountName }: Props) {
         pay: parsedPay,
         category,
         urgency,
-        featured,
         photos: initial ? initial.photos : photos,
         requesterName: accountName ?? (requester.trim() || 'Customer'),
       });
@@ -167,15 +165,6 @@ export default function PostScreen({ onSubmit, initial, accountName }: Props) {
           />
         )}
 
-        <View style={styles.featureRow}>
-          <Text style={styles.featureLabel}>Feature this job</Text>
-          <Switch
-            value={featured}
-            onValueChange={setFeatured}
-            trackColor={{ true: colors.brand, false: colors.line }}
-          />
-        </View>
-
         {!accountName && !initial && <Field placeholder="Your name" value={requester} onChangeText={setRequester} />}
 
         <Btn
@@ -235,17 +224,6 @@ const styles = StyleSheet.create({
   },
   photoButton: {
     marginTop: 10,
-  },
-  featureRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 14,
-  },
-  featureLabel: {
-    color: colors.ink,
-    fontSize: 14,
-    fontWeight: '600',
   },
   submit: {
     marginTop: 16,
