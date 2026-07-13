@@ -1,19 +1,22 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Btn, Card, EmptyCard, JobCard, Pill, SectionTitle, statusStyle } from '../components';
+import { StarRow } from '../Stars';
 import { remoteEnabled } from '../store';
 import { colors } from '../theme';
-import { AuthUser, Job } from '../types';
+import { AuthUser, Job, ProfileStats } from '../types';
 
 type Props = {
   user: AuthUser | null;
   jobs: Job[];
   unread: Record<string, number>;
   saved: Record<string, boolean>;
+  stats: ProfileStats | null;
   onOpen: (id: string) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleSave: (id: string) => void;
+  onOpenUser: (userId: string) => void;
   onGoLogin: () => void;
   onSignOut: () => void;
 };
@@ -23,10 +26,12 @@ export default function ProfileScreen({
   jobs,
   unread,
   saved,
+  stats,
   onOpen,
   onEdit,
   onDelete,
   onToggleSave,
+  onOpenUser,
   onGoLogin,
   onSignOut,
 }: Props) {
@@ -65,7 +70,33 @@ export default function ProfileScreen({
             ? user?.email
             : 'The app is not connected to the online backend yet, so posts live on this device only.'}
         </Text>
-        {remoteEnabled && <Btn label="Sign out" onPress={onSignOut} outline small style={styles.mainButton} />}
+        {stats && stats.reviewCount > 0 ? (
+          <View style={styles.ratingRow}>
+            <StarRow rating={stats.avgRating} size={18} />
+            <Text style={styles.ratingText}>
+              {`${stats.avgRating.toFixed(1)} from ${stats.reviewCount} ${
+                stats.reviewCount === 1 ? 'review' : 'reviews'
+              }`}
+            </Text>
+          </View>
+        ) : (
+          remoteEnabled && <Text style={styles.noRating}>No reviews yet. Finish a job to start building a record.</Text>
+        )}
+        {stats && (
+          <Text style={styles.counts}>
+            {`${stats.jobsCompleted} ${stats.jobsCompleted === 1 ? 'job' : 'jobs'} done - ${stats.jobsPosted} posted`}
+          </Text>
+        )}
+        {remoteEnabled && user && (
+          <Btn
+            label="View my public profile"
+            onPress={() => onOpenUser(user.id)}
+            outline
+            small
+            style={styles.mainButton}
+          />
+        )}
+        {remoteEnabled && <Btn label="Sign out" onPress={onSignOut} outline small style={styles.signOut} />}
       </Card>
 
       <SectionTitle>My posts</SectionTitle>
@@ -140,6 +171,30 @@ const styles = StyleSheet.create({
   },
   mainButton: {
     marginTop: 14,
+  },
+  signOut: {
+    marginTop: 10,
+  },
+  ratingRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  ratingText: {
+    color: colors.ink,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  noRating: {
+    color: colors.muted,
+    fontSize: 14,
+    marginTop: 10,
+  },
+  counts: {
+    color: colors.muted,
+    fontSize: 13,
+    marginTop: 6,
   },
   postCard: {
     marginTop: 10,

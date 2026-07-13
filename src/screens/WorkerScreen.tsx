@@ -1,9 +1,10 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Card, ChipRow, CityRow, EmptyCard, JobCard, Pill, SectionTitle } from '../components';
+import { StarRow } from '../Stars';
 import { money } from '../format';
 import { matchesFilters } from '../store';
 import { colors } from '../theme';
-import { CATEGORY_FILTERS, Job } from '../types';
+import { CATEGORY_FILTERS, Job, ProfileStats } from '../types';
 
 type Props = {
   jobs: Job[];
@@ -19,6 +20,7 @@ type Props = {
   onToggleSave: (id: string) => void;
   saved: Record<string, boolean>;
   unread: Record<string, number>;
+  stats: ProfileStats | null;
 };
 
 export default function WorkerScreen({
@@ -35,6 +37,7 @@ export default function WorkerScreen({
   onToggleSave,
   saved,
   unread,
+  stats,
 }: Props) {
   const openJobs = jobs.filter((job) => job.status === 'OPEN');
   const openVisible = openJobs.filter((job) => matchesFilters(job, category, '', city, area));
@@ -49,8 +52,28 @@ export default function WorkerScreen({
             <Text style={styles.summaryTitle}>Worker board</Text>
             <Text style={styles.summaryMeta}>{`${openJobs.length} open jobs worth ${money(totalOpenPay)}`}</Text>
           </View>
-          <Pill label="Verified worker" bg={colors.softBrand} color={colors.brand} />
+          {/* This badge reflects the real record. It used to read "Verified worker"
+              for everyone, which claimed a verification that does not exist. */}
+          {stats && stats.jobsCompleted > 0 ? (
+            <Pill
+              label={`${stats.jobsCompleted} ${stats.jobsCompleted === 1 ? 'job' : 'jobs'} done`}
+              bg={colors.softBrand}
+              color={colors.brand}
+            />
+          ) : (
+            <Pill label="New worker" bg={colors.softGrey} color={colors.muted} />
+          )}
         </View>
+        {stats && stats.reviewCount > 0 && (
+          <View style={styles.ratingRow}>
+            <StarRow rating={stats.avgRating} />
+            <Text style={styles.ratingText}>
+              {`${stats.avgRating.toFixed(1)} from ${stats.reviewCount} ${
+                stats.reviewCount === 1 ? 'review' : 'reviews'
+              }`}
+            </Text>
+          </View>
+        )}
         <Text style={styles.note}>
           Pick jobs with clear pay, location, and instructions. Open the detail page before accepting.
         </Text>
@@ -111,6 +134,17 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 14,
     marginTop: 2,
+  },
+  ratingRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  ratingText: {
+    color: colors.ink,
+    fontSize: 13,
+    fontWeight: '700',
   },
   note: {
     color: colors.muted,

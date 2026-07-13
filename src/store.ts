@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { User } from '@supabase/supabase-js';
 import { remoteEnabled } from './config';
 import { supabase } from './supabase';
-import { AuthUser, ChatMessage, Job, JobDraft, SubmitResult } from './types';
+import { AuthUser, ChatMessage, Job, JobDraft, ProfileStats, Review, SubmitResult } from './types';
 
 const JOBS_KEY = 'odd_jobs_store.jobs';
 const FAVORITES_KEY = 'odd_jobs_store.favorites';
@@ -335,6 +335,87 @@ export async function loadUnreadCounts(): Promise<Record<string, number>> {
     counts[row.job_id] = Number(row.unread);
   }
   return counts;
+}
+
+// Reviews. The client never says who is being rated - submit_review derives that
+// from the job, so a review cannot be forged against someone you never worked with.
+export async function submitReview(
+  jobId: string,
+  rating: number,
+  comment: string,
+): Promise<{ ok: boolean; message?: string }> {
+  if (!supabase) {
+    return { ok: false, message: 'Reviews need the online backend.' };
+  }
+  const { error } = await supabase.rpc('submit_review', {
+    p_job_id: jobId,
+    p_rating: rating,
+    p_comment: comment,
+  });
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+  return { ok: true };
+}
+
+// Job ids the signed-in user has already reviewed, so the app does not offer to
+// rate the same job twice.
+export async function loadReviewedJobIds(): Promise<string[]> {
+  if (!supabase) {
+    return [];
+  }
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) {
+    return [];
+  }
+  const { data, error } = await supabase.from('reviews').select('job_id').eq('rater_id', userData.user.id);
+  if (error) {
+    return [];
+  }
+  return (data ?? []).map((row) => String(row.job_id));
+}
+
+export async function loadReviews(userId: string): Promise<Review[]> {
+  if (!supabase) {
+    return [];
+  }
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('*')
+    .eq('ratee_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) {
+    console.warn('Could not load reviews:', error.message);
+    return [];
+  }
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    jobId: String(row.job_id),
+    raterName: String(row.rater_name ?? 'User'),
+    rating: Number(row.rating ?? 0),
+    comment: String(row.comment ?? ''),
+    createdAt: row.created_at ? Date.parse(String(row.created_at)) : 0,
+  }));
+}
+
+export async function loadProfileStats(userId: string): Promise<ProfileStats | null> {
+  if (!supabase) {
+    return null;
+  }
+  const { data, error } = await supabase.rpc('profile_stats', { p_user_id: userId });
+  const row = Array.isArray(data) ? data[0] : data;
+  if (error || !row) {
+    return null;
+  }
+  return {
+    name: String(row.name ?? 'User'),
+    jobsCompleted: Number(row.jobs_completed ?? 0),
+    jobsPosted: Number(row.jobs_posted ?? 0),
+    reviewCount: Number(row.review_count ?? 0),
+    avgRating: Number(row.avg_rating ?? 0),
+    memberSince: row.member_since ? Date.parse(String(row.member_since)) : 0,
+  };
 }
 
 // Saved jobs. A save is private to the user who made it: the table's policies

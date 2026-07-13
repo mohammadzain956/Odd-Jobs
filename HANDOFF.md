@@ -97,6 +97,8 @@ supabase/
   schema.sql           Tables (jobs, reports), RLS policies, storage bucket, seed.
   chat.sql             messages, chat_reads, push_tokens + RLS + unread_counts().
   favorites.sql        Saved jobs. Private to each user (own-rows-only policies).
+  cancel.sql           cancel_job(): release a stuck ACCEPTED/IN_PROGRESS job.
+  reviews.sql          Ratings, submit_review(), profile_stats(). The trust layer.
   security.sql         CRITICAL hardening. Read this before touching permissions.
   functions/create-job Edge function: moderates posts, handles edits, rate limits.
   functions/push       Edge function: sends push to the other job participant.
@@ -138,8 +140,16 @@ are blocked. Preserve them.
   `security.sql`. Creating/editing → `create-job` function (service role, after
   moderation, after verifying ownership + that the job is still OPEN).
 - **Status transitions:** `accept_job(uuid)`, `start_job(uuid)`,
-  `complete_job(uuid)` are `SECURITY DEFINER` Postgres functions that check the
-  caller and that the transition is legal. `changeJobStatus` calls these.
+  `complete_job(uuid)`, `cancel_job(uuid)` are `SECURITY DEFINER` Postgres
+  functions that check the caller and that the transition is legal.
+  `changeJobStatus` calls these. `cancel_job` also deletes the job's messages,
+  because chat is readable by whoever is currently `accepted_by` - leaving the
+  thread behind would let the next worker read the previous one's conversation.
+- **Reviews:** written only through `submit_review(job, rating, comment)`. The
+  client never sends who is being rated; the server derives it from the job, so a
+  review cannot be forged against someone you never worked with. Reviews are
+  publicly readable on purpose (a hidden rating is not a trust signal) and cannot
+  be edited or deleted by the person who received them.
 - **Deletes:** a policy allows deleting only your own job while it is still OPEN.
 - **Chat:** `messages` are readable/writable only by the job's poster and its
   accepted worker, enforced in RLS. A third party cannot read, inject, or forge.
@@ -239,9 +249,16 @@ involving money or trust and the security model stays intact.
 
 ## 11. What's intentionally not built yet
 
-Worker profiles/ratings, an in-app admin panel (admin work is done in the
-Supabase dashboard today), and payments/escrow. These are future features, not
-missing pieces — add them following section 8 and 9.
+An in-app admin panel (admin work is done in the Supabase dashboard today),
+account deletion + a privacy policy (both are hard Google Play requirements for
+an app with accounts — do these before submitting), job expiry for stale OPEN
+posts, and payments/escrow. These are future features, not missing pieces — add
+them following section 8 and 9.
+
+Do not re-add a "Verified worker" badge that is not backed by real data. One
+used to be hardcoded on the worker board and shown to every user, which claimed a
+verification the app does not perform. It now reflects the real completed-job
+count from `profile_stats`.
 
 Note on `featured`: the column, the "Featured" badge, and the home feed's
 "Featured nearby" section all exist, but **nothing in the app can set the flag**.

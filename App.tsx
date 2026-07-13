@@ -11,6 +11,7 @@ import DetailScreen from './src/screens/DetailScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import PostScreen from './src/screens/PostScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import UserScreen from './src/screens/UserScreen';
 import WorkerScreen from './src/screens/WorkerScreen';
 import {
   changeJobStatus,
@@ -18,6 +19,8 @@ import {
   getSessionUser,
   loadFavorites,
   loadJobs,
+  loadProfileStats,
+  loadReviewedJobIds,
   loadUnreadCounts,
   markChatRead,
   persistLocal,
@@ -28,13 +31,14 @@ import {
   setFavorite,
   signOutUser,
   submitJob,
+  submitReview,
   subscribeToInbox,
   updateJobFields,
 } from './src/store';
 import { detectCity } from './src/location';
 import { getPushToken, onNotificationTap } from './src/push';
 import { colors, radius } from './src/theme';
-import { AuthUser, Job, JobDraft, Screen } from './src/types';
+import { AuthUser, Job, JobDraft, ProfileStats, Screen } from './src/types';
 
 // Hold the native splash until the app has mounted, then the animated splash
 // takes over and dismisses itself.
@@ -48,6 +52,7 @@ const SUBTITLES: Record<Screen, string> = {
   profile: 'Your account and the posts you manage.',
   auth: 'Log in or create your account.',
   chat: 'Sort out the details together.',
+  user: 'See who you are about to work with.',
 };
 
 const NAV_ITEMS: Array<{ screen: Screen; label: string }> = [
@@ -72,6 +77,9 @@ export default function App() {
   const [splashDone, setSplashDone] = useState(false);
   const [unread, setUnread] = useState<Record<string, number>>({});
   const [saved, setSaved] = useState<Record<string, boolean>>({});
+  const [reviewed, setReviewed] = useState<Record<string, boolean>>({});
+  const [myStats, setMyStats] = useState<ProfileStats | null>(null);
+  const [viewingUserId, setViewingUserId] = useState('');
   const [afterAuth, setAfterAuth] = useState<Screen>('home');
   const scrollRef = useRef<ScrollView>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -85,16 +93,24 @@ export default function App() {
     });
   }, []);
 
-  // Saved jobs belong to the account, so reload them whenever the user changes
-  // (including sign-out, which clears the list).
+  // Saved jobs, reviews given, and the user's own reputation all belong to the
+  // account, so they reload whenever the user changes (sign-out clears them).
   useEffect(() => {
     if (remoteEnabled && !user) {
       setSaved({});
+      setReviewed({});
+      setMyStats(null);
       return;
     }
     loadFavorites().then((ids) => {
       setSaved(Object.fromEntries(ids.map((id) => [id, true])));
     });
+    if (user) {
+      loadReviewedJobIds().then((ids) => {
+        setReviewed(Object.fromEntries(ids.map((id) => [id, true])));
+      });
+      loadProfileStats(user.id).then(setMyStats);
+    }
   }, [user?.id]);
 
   useEffect(() => {
@@ -279,6 +295,25 @@ export default function App() {
     });
   };
 
+  const openUser = (userId: string) => {
+    setViewingUserId(userId);
+    setScreen('user');
+  };
+
+  const handleReview = (id: string, rating: number, comment: string) => {
+    void submitReview(id, rating, comment).then((result) => {
+      if (!result.ok) {
+        notify(result.message ?? 'Could not submit your review.');
+        return;
+      }
+      setReviewed((current) => ({ ...current, [id]: true }));
+      notify('Review submitted');
+      if (user) {
+        loadProfileStats(user.id).then(setMyStats);
+      }
+    });
+  };
+
   const handleReport = (id: string, reason: string) => {
     void reportJob(id, reason).then((result) => {
       notify(result.ok ? 'Thanks. Our team will review this post.' : (result.message ?? 'Could not send the report.'));
@@ -354,6 +389,18 @@ export default function App() {
   const selectedJob = jobs.find((job) => job.id === selectedId);
   const editingJob = jobs.find((job) => job.id === editingId);
 
+  // You may review a job you took part in, once it is done, and only once. The
+  // server enforces all three; this just decides whether to show the form.
+  const canReview = Boolean(
+    user &&
+      selectedJob &&
+      selectedJob.status === 'COMPLETED' &&
+      (selectedJob.createdBy === user.id || selectedJob.acceptedBy === user.id) &&
+      selectedJob.createdBy !== '' &&
+      selectedJob.acceptedBy !== '' &&
+      !reviewed[selectedJob.id],
+  );
+
   useEffect(() => {
     if (ready && (screen === 'detail' || screen === 'chat') && !selectedJob) {
       setScreen('home');
@@ -383,7 +430,7 @@ export default function App() {
             />
           </View>
 
-          {screen !== 'detail' && screen !== 'chat' && (
+          {screen !== 'detail' && screen !== 'chat' && screen !== 'user' && (
             <View style={styles.nav}>
               {NAV_ITEMS.map((item) => {
                 const active = (screen === 'auth' ? afterAuth : screen) === item.screen;
@@ -442,6 +489,7 @@ export default function App() {
               onToggleSave={handleToggleSave}
               saved={saved}
               unread={unread}
+              stats={myStats}
             />
           )}
           {screen === 'profile' && (
@@ -450,10 +498,12 @@ export default function App() {
               jobs={jobs}
               unread={unread}
               saved={saved}
+              stats={myStats}
               onOpen={openDetail}
               onEdit={handleEdit}
               onDelete={handleDelete}
               onToggleSave={handleToggleSave}
+              onOpenUser={openUser}
               onGoLogin={() => {
                 setAfterAuth('profile');
                 setScreen('auth');
@@ -473,12 +523,18 @@ export default function App() {
               onReport={handleReport}
               onChat={handleChat}
               onToggleSave={handleToggleSave}
+              onOpenUser={openUser}
+              onReview={handleReview}
+              canReview={canReview}
               saved={saved[selectedJob.id] ?? false}
               unread={unread[selectedJob.id] ?? 0}
             />
           )}
           {screen === 'chat' && selectedJob && user && (
             <ChatScreen job={selectedJob} user={user} onBack={() => setScreen('detail')} />
+          )}
+          {screen === 'user' && viewingUserId !== '' && (
+            <UserScreen userId={viewingUserId} onBack={() => setScreen(selectedId ? 'detail' : 'home')} />
           )}
         </ScrollView>
 

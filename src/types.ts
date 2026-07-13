@@ -37,6 +37,26 @@ export interface AuthUser {
   email: string;
 }
 
+export interface Review {
+  id: string;
+  jobId: string;
+  raterName: string;
+  rating: number;
+  comment: string;
+  createdAt: number;
+}
+
+// The public reputation of a user: what a stranger is allowed to see before
+// deciding to work with them. No email, no contact details.
+export interface ProfileStats {
+  name: string;
+  jobsCompleted: number;
+  jobsPosted: number;
+  reviewCount: number;
+  avgRating: number;
+  memberSince: number;
+}
+
 export type SubmitResult =
   | { verdict: 'approved' | 'pending'; job: Job; reason?: string }
   | { verdict: 'rejected'; job: null; reason: string };
@@ -48,7 +68,7 @@ export type JobDraft = Pick<
   'title' | 'details' | 'location' | 'city' | 'pay' | 'category' | 'urgency' | 'photos' | 'requesterName'
 >;
 
-export type Screen = 'home' | 'post' | 'worker' | 'detail' | 'profile' | 'auth' | 'chat';
+export type Screen = 'home' | 'post' | 'worker' | 'detail' | 'profile' | 'auth' | 'chat' | 'user';
 
 export const CATEGORIES = [
   'Moving',

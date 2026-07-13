@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Btn, Bullet, Card, Pill, statusStyle } from '../components';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Btn, Bullet, Card, Field, Pill, statusStyle } from '../components';
+import { StarPicker } from '../Stars';
 import { locationLabel, money, timeLabel } from '../format';
 import { colors, radius } from '../theme';
 import { Job } from '../types';
@@ -25,6 +26,9 @@ type Props = {
   onReport: (id: string, reason: string) => void;
   onChat: (id: string) => void;
   onToggleSave: (id: string) => void;
+  onOpenUser: (userId: string) => void;
+  onReview: (id: string, rating: number, comment: string) => void;
+  canReview: boolean;
   saved: boolean;
   unread: number;
 };
@@ -39,12 +43,17 @@ export default function DetailScreen({
   onReport,
   onChat,
   onToggleSave,
+  onOpenUser,
+  onReview,
+  canReview,
   saved,
   unread,
 }: Props) {
   const status = statusStyle(job.status);
   const [reporting, setReporting] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState('');
   const active = job.status === 'ACCEPTED' || job.status === 'IN_PROGRESS';
 
   const sendReport = (reason: string) => {
@@ -73,7 +82,15 @@ export default function DetailScreen({
 
         <View style={styles.infoBlock}>
           <InfoRow label="Location" value={locationLabel(job)} />
-          <InfoRow label="Posted by" value={job.requesterName} />
+          <PersonRow
+            label="Posted by"
+            name={job.requesterName}
+            userId={job.createdBy}
+            onOpenUser={onOpenUser}
+          />
+          {job.workerName !== '' && (
+            <PersonRow label="Worker" name={job.workerName} userId={job.acceptedBy} onOpenUser={onOpenUser} />
+          )}
           <InfoRow label="Posted" value={timeLabel(job.createdAt)} />
         </View>
 
@@ -140,6 +157,34 @@ export default function DetailScreen({
           </View>
         </View>
 
+        {canReview && (
+          <View style={styles.reviewBox}>
+            <Text style={styles.reviewTitle}>How did it go?</Text>
+            <Text style={styles.reviewNote}>
+              Your rating is public and helps the next person decide who to work with. It cannot be changed later.
+            </Text>
+            <View style={styles.picker}>
+              <StarPicker value={rating} onChange={setRating} />
+            </View>
+            <Field
+              placeholder="Add a comment (optional)"
+              value={comment}
+              onChangeText={setComment}
+              multiline
+              maxLength={500}
+            />
+            <Btn
+              label={rating === 0 ? 'Pick a rating' : 'Submit review'}
+              onPress={() => {
+                if (rating > 0) {
+                  onReview(job.id, rating, comment.trim());
+                }
+              }}
+              style={styles.reviewSubmit}
+            />
+          </View>
+        )}
+
         {reporting && (
           <View style={styles.reportBox}>
             <Text style={styles.reportTitle}>Why are you reporting this post?</Text>
@@ -170,6 +215,32 @@ function InfoRow({ label, value }: { label: string; value: string }) {
     <View style={styles.infoRow}>
       <Text style={styles.infoLabel}>{label}</Text>
       <Text style={styles.infoValue}>{value}</Text>
+    </View>
+  );
+}
+
+// A named participant, tappable to see their public record. Falls back to plain
+// text for older posts that have no account attached to them.
+function PersonRow({
+  label,
+  name,
+  userId,
+  onOpenUser,
+}: {
+  label: string;
+  name: string;
+  userId: string;
+  onOpenUser: (userId: string) => void;
+}) {
+  if (!userId) {
+    return <InfoRow label={label} value={name} />;
+  }
+  return (
+    <View style={styles.infoRow}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Pressable onPress={() => onOpenUser(userId)} style={({ pressed }) => pressed && styles.pressed}>
+        <Text style={styles.personLink}>{`${name} - view profile`}</Text>
+      </Pressable>
     </View>
   );
 }
@@ -262,6 +333,39 @@ const styles = StyleSheet.create({
   },
   secondaryBtn: {
     flex: 1,
+  },
+  personLink: {
+    color: colors.brand,
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  pressed: {
+    opacity: 0.6,
+  },
+  reviewBox: {
+    borderTopColor: colors.line,
+    borderTopWidth: 1,
+    marginTop: 18,
+    paddingTop: 16,
+  },
+  reviewTitle: {
+    color: colors.ink,
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  reviewNote: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 4,
+  },
+  picker: {
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  reviewSubmit: {
+    marginTop: 12,
   },
   reportBox: {
     borderTopColor: colors.line,
