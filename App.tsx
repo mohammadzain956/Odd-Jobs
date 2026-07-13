@@ -173,7 +173,7 @@ export default function App() {
   // list is reloaded so the screen shows the real state rather than a guess.
   const applyStatus = async (
     id: string,
-    action: 'accept' | 'start' | 'complete',
+    action: 'accept' | 'start' | 'complete' | 'cancel',
     optimistic: Partial<Job>,
     successMessage: string,
   ) => {
@@ -247,6 +247,19 @@ export default function App() {
 
   const completeJob = (id: string) => {
     void applyStatus(id, 'complete', { status: 'COMPLETED', completedAt: Date.now() }, 'Job completed');
+  };
+
+  // Releases a stuck job (worker vanished, or the worker can no longer do it)
+  // back to the open feed. The server also clears the chat, since the match that
+  // owned that conversation no longer exists.
+  const cancelJob = (id: string) => {
+    setUnread((current) => ({ ...current, [id]: 0 }));
+    void applyStatus(
+      id,
+      'cancel',
+      { status: 'OPEN', workerName: '', acceptedBy: '', acceptedAt: 0 },
+      'Job re-opened for other workers',
+    );
   };
 
   // Optimistic: the toggle flips immediately, and reverts if the server refuses.
@@ -456,6 +469,7 @@ export default function App() {
               onAccept={acceptJob}
               onStart={startJob}
               onComplete={completeJob}
+              onCancel={cancelJob}
               onReport={handleReport}
               onChat={handleChat}
               onToggleSave={handleToggleSave}

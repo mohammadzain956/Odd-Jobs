@@ -91,13 +91,18 @@ export async function submitJob(draft: JobDraft): Promise<SubmitResult> {
 // transition; clients have no direct update rights on jobs.
 export async function changeJobStatus(
   id: string,
-  action: 'accept' | 'start' | 'complete',
+  action: 'accept' | 'start' | 'complete' | 'cancel',
 ): Promise<{ ok: boolean; message?: string }> {
   if (!supabase) {
     return { ok: true };
   }
-  const rpc = action === 'accept' ? 'accept_job' : action === 'start' ? 'start_job' : 'complete_job';
-  const { error } = await supabase.rpc(rpc, { p_job_id: id });
+  const RPCS = {
+    accept: 'accept_job',
+    start: 'start_job',
+    complete: 'complete_job',
+    cancel: 'cancel_job',
+  } as const;
+  const { error } = await supabase.rpc(RPCS[action], { p_job_id: id });
   if (error) {
     return { ok: false, message: error.message };
   }

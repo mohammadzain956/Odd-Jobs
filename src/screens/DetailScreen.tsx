@@ -21,6 +21,7 @@ type Props = {
   onAccept: (id: string) => void;
   onStart: (id: string) => void;
   onComplete: (id: string) => void;
+  onCancel: (id: string) => void;
   onReport: (id: string, reason: string) => void;
   onChat: (id: string) => void;
   onToggleSave: (id: string) => void;
@@ -34,6 +35,7 @@ export default function DetailScreen({
   onAccept,
   onStart,
   onComplete,
+  onCancel,
   onReport,
   onChat,
   onToggleSave,
@@ -42,6 +44,8 @@ export default function DetailScreen({
 }: Props) {
   const status = statusStyle(job.status);
   const [reporting, setReporting] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const active = job.status === 'ACCEPTED' || job.status === 'IN_PROGRESS';
 
   const sendReport = (reason: string) => {
     setReporting(false);
@@ -88,6 +92,27 @@ export default function DetailScreen({
           {job.status === 'OPEN' && <Btn label="Accept job" onPress={() => onAccept(job.id)} color={colors.action} />}
           {job.status === 'ACCEPTED' && <Btn label="Start work" onPress={() => onStart(job.id)} />}
           {job.status === 'IN_PROGRESS' && <Btn label="Mark complete" onPress={() => onComplete(job.id)} />}
+          {active && (
+            <Btn
+              label={confirmCancel ? 'Confirm: re-open this job?' : 'Cancel job'}
+              onPress={() => {
+                if (confirmCancel) {
+                  setConfirmCancel(false);
+                  onCancel(job.id);
+                } else {
+                  setConfirmCancel(true);
+                }
+              }}
+              color={colors.action}
+              outline={!confirmCancel}
+              small
+            />
+          )}
+          {confirmCancel && (
+            <Text style={styles.cancelNote}>
+              The job goes back to the open list for other workers, and the chat for this job is cleared.
+            </Text>
+          )}
           <View style={styles.secondaryRow}>
             <Btn
               label={unread > 0 ? `Chat (${unread} new)` : 'Chat'}
@@ -225,6 +250,11 @@ const styles = StyleSheet.create({
   actions: {
     gap: 10,
     marginTop: 18,
+  },
+  cancelNote: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
   },
   secondaryRow: {
     flexDirection: 'row',
