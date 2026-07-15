@@ -68,7 +68,16 @@ export type JobDraft = Pick<
   'title' | 'details' | 'location' | 'city' | 'pay' | 'category' | 'urgency' | 'photos' | 'requesterName'
 >;
 
-export type Screen = 'home' | 'post' | 'worker' | 'detail' | 'profile' | 'auth' | 'chat' | 'user';
+export type Screen = 'home' | 'post' | 'worker' | 'detail' | 'profile' | 'auth' | 'chat' | 'user' | 'admin';
+
+// A user report as shown in the admin queue.
+export interface AdminReport {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  reason: string;
+  createdAt: number;
+}
 
 export const CATEGORIES = [
   'Moving',

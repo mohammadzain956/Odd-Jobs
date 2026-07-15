@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import AnimatedSplash from './src/AnimatedSplash';
 import { Pill } from './src/components';
+import AdminScreen from './src/screens/AdminScreen';
 import AuthScreen from './src/screens/AuthScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import DetailScreen from './src/screens/DetailScreen';
@@ -19,6 +20,7 @@ import {
   deleteAccount,
   deleteJob,
   getSessionUser,
+  isAdmin,
   loadFavorites,
   loadJobs,
   loadProfileStats,
@@ -55,6 +57,7 @@ const SUBTITLES: Record<Screen, string> = {
   auth: 'Log in or create your account.',
   chat: 'Sort out the details together.',
   user: 'See who you are about to work with.',
+  admin: 'Review held posts and user reports.',
 };
 
 const NAV_ITEMS: Array<{ screen: Screen; label: string }> = [
@@ -81,6 +84,7 @@ export default function App() {
   const [saved, setSaved] = useState<Record<string, boolean>>({});
   const [reviewed, setReviewed] = useState<Record<string, boolean>>({});
   const [myStats, setMyStats] = useState<ProfileStats | null>(null);
+  const [admin, setAdmin] = useState(false);
   const [viewingUserId, setViewingUserId] = useState('');
   const [afterAuth, setAfterAuth] = useState<Screen>('home');
   const scrollRef = useRef<ScrollView>(null);
@@ -102,6 +106,7 @@ export default function App() {
       setSaved({});
       setReviewed({});
       setMyStats(null);
+      setAdmin(false);
       return;
     }
     loadFavorites().then((ids) => {
@@ -112,8 +117,17 @@ export default function App() {
         setReviewed(Object.fromEntries(ids.map((id) => [id, true])));
       });
       loadProfileStats(user.id).then(setMyStats);
+      isAdmin().then(setAdmin);
     }
   }, [user?.id]);
+
+  // Admin access can only be lost (sign-out), never gained, mid-session on this
+  // screen - so bounce home if it goes away while the queue is open.
+  useEffect(() => {
+    if (ready && screen === 'admin' && !admin) {
+      setScreen('home');
+    }
+  }, [ready, screen, admin]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -406,6 +420,11 @@ export default function App() {
   const selectedJob = jobs.find((job) => job.id === selectedId);
   const editingJob = jobs.find((job) => job.id === editingId);
 
+  // The Admin tab exists only for accounts the database says are admins.
+  const navItems: Array<{ screen: Screen; label: string }> = admin
+    ? [...NAV_ITEMS, { screen: 'admin', label: 'Admin' }]
+    : NAV_ITEMS;
+
   // You may review a job you took part in, once it is done, and only once. The
   // server enforces all three; this just decides whether to show the form.
   const canReview = Boolean(
@@ -449,7 +468,7 @@ export default function App() {
 
           {screen !== 'detail' && screen !== 'chat' && screen !== 'user' && (
             <View style={styles.nav}>
-              {NAV_ITEMS.map((item) => {
+              {navItems.map((item) => {
                 const active = (screen === 'auth' ? afterAuth : screen) === item.screen;
                 return (
                   <Pressable
@@ -553,6 +572,16 @@ export default function App() {
           )}
           {screen === 'user' && viewingUserId !== '' && (
             <UserScreen userId={viewingUserId} onBack={() => setScreen(selectedId ? 'detail' : 'home')} />
+          )}
+          {screen === 'admin' && admin && (
+            <AdminScreen
+              jobs={jobs}
+              onOpen={openDetail}
+              onChanged={() => {
+                loadJobs().then(setJobs);
+              }}
+              notify={notify}
+            />
           )}
         </ScrollView>
 

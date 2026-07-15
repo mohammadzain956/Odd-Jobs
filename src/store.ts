@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { User } from '@supabase/supabase-js';
 import { remoteEnabled } from './config';
 import { supabase } from './supabase';
-import { AuthUser, ChatMessage, Job, JobDraft, ProfileStats, Review, SubmitResult } from './types';
+import { AdminReport, AuthUser, ChatMessage, Job, JobDraft, ProfileStats, Review, SubmitResult } from './types';
 
 const JOBS_KEY = 'odd_jobs_store.jobs';
 const FAVORITES_KEY = 'odd_jobs_store.favorites';
@@ -501,6 +501,71 @@ export async function reportJob(id: string, reason: string): Promise<{ ok: boole
     };
   }
   return { ok: true };
+}
+
+// Admin moderation. Whether a user is an admin lives only in the database (the
+// admins table), never in the shipped bundle, and every admin_* function checks
+// the caller server-side - these wrappers are remote-only by nature.
+export async function isAdmin(): Promise<boolean> {
+  if (!supabase) {
+    return false;
+  }
+  const { data, error } = await supabase.rpc('is_admin');
+  return !error && data === true;
+}
+
+export async function loadPendingJobs(): Promise<Job[]> {
+  if (!supabase) {
+    return [];
+  }
+  const { data, error } = await supabase.rpc('admin_pending_jobs');
+  if (error) {
+    console.warn('Could not load pending posts:', error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToJob);
+}
+
+export async function approveJob(id: string): Promise<{ ok: boolean; message?: string }> {
+  if (!supabase) {
+    return { ok: false, message: 'Moderation needs the online backend.' };
+  }
+  const { error } = await supabase.rpc('admin_approve_job', { p_job_id: id });
+  return error ? { ok: false, message: error.message } : { ok: true };
+}
+
+export async function rejectJob(id: string, reason: string): Promise<{ ok: boolean; message?: string }> {
+  if (!supabase) {
+    return { ok: false, message: 'Moderation needs the online backend.' };
+  }
+  const { error } = await supabase.rpc('admin_reject_job', { p_job_id: id, p_reason: reason });
+  return error ? { ok: false, message: error.message } : { ok: true };
+}
+
+export async function loadReports(): Promise<AdminReport[]> {
+  if (!supabase) {
+    return [];
+  }
+  const { data, error } = await supabase.rpc('admin_reports');
+  if (error) {
+    console.warn('Could not load reports:', error.message);
+    return [];
+  }
+  return (data ?? []).map((row: Record<string, unknown>) => ({
+    id: String(row.id),
+    jobId: String(row.job_id),
+    jobTitle: String(row.job_title ?? ''),
+    reason: String(row.reason ?? ''),
+    createdAt: row.created_at ? Date.parse(String(row.created_at)) : 0,
+  }));
+}
+
+export async function dismissReport(id: string): Promise<{ ok: boolean; message?: string }> {
+  if (!supabase) {
+    return { ok: false, message: 'Moderation needs the online backend.' };
+  }
+  const { error } = await supabase.rpc('admin_dismiss_report', { p_report_id: id });
+  return error ? { ok: false, message: error.message } : { ok: true };
 }
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
