@@ -113,7 +113,6 @@ Reports from the app land in the `reports` table for the same manual review.
 
 ## Next product steps
 
-- Worker profiles, ratings, and push notifications.
 - A real map with job locations and distances.
-- An admin screen for reviewing held posts and reports (currently done in the Supabase dashboard).
-- Payments or escrow once the request flow is validated.
+- Google sign-in (deliberately deferred; email/password works today).
+- Payments or escrow once the request flow is validated - featured listings first.

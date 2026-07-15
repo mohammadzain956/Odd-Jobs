@@ -88,10 +88,16 @@ src/screens/
   HomeScreen.tsx       Customer feed: city/area/category filter + search.
   WorkerScreen.tsx     Worker view of OPEN jobs, filtered by city/area.
   PostScreen.tsx       Create/edit a job. Photo picker. City/area pickers.
-  DetailScreen.tsx     One job: photos, status actions, chat button, report picker.
-  ProfileScreen.tsx    "My Posts" (edit/delete own OPEN jobs), sign out.
+  DetailScreen.tsx     One job: photos, status actions, chat, report, review form.
+  ProfileScreen.tsx    "My Posts", saved jobs, own rating, sign out, delete account.
+  UserScreen.tsx       Public profile: rating, jobs done/posted, reviews received.
+  AdminScreen.tsx      Admin-only queue: approve/reject held posts, handle reports.
   AuthScreen.tsx       Login / signup.
   ChatScreen.tsx       Realtime 1:1 chat for an accepted job.
+
+docs/
+  privacy-policy.html  Public privacy policy (host via GitHub Pages; Play needs the URL).
+  terms-of-service.html Terms: noticeboard-not-employer, prohibited uses, no warranty.
 
 supabase/
   schema.sql           Tables (jobs, reports), RLS policies, storage bucket, seed.
@@ -99,7 +105,10 @@ supabase/
   favorites.sql        Saved jobs. Private to each user (own-rows-only policies).
   cancel.sql           cancel_job(): release a stuck ACCEPTED/IN_PROGRESS job.
   reviews.sql          Ratings, submit_review(), profile_stats(). The trust layer.
+  admin.sql            admins table (client-unreadable), is_admin(), admin_* queue
+                       functions, admin_actions audit log.
   security.sql         CRITICAL hardening. Read this before touching permissions.
+  functions/delete-account  Deletes the caller's own account (Play requirement).
   functions/create-job Edge function: moderates posts, handles edits, rate limits.
   functions/push       Edge function: sends push to the other job participant.
 ```
@@ -249,11 +258,20 @@ involving money or trust and the security model stays intact.
 
 ## 11. What's intentionally not built yet
 
-An in-app admin panel (admin work is done in the Supabase dashboard today),
-account deletion + a privacy policy (both are hard Google Play requirements for
-an app with accounts — do these before submitting), job expiry for stale OPEN
-posts, and payments/escrow. These are future features, not missing pieces — add
+Payments/escrow (see section 9 for the intended shape), social/phone login, and
+a real map with distances. These are future features, not missing pieces — add
 them following section 8 and 9.
+
+Admin moderation: the Admin tab appears only for accounts listed in the
+`admins` table. That table has RLS with zero policies and revoked grants — the
+client cannot read it; the app asks `is_admin()` and every `admin_*` function
+re-checks the caller server-side. To make someone an admin, insert their auth
+user id into `admins` via the SQL Editor. Never ship an admin user id or an
+admin flag inside the app bundle.
+
+The public feed hides OPEN jobs older than 30 days (`STALE_OPEN_DAYS` in
+store.ts, applied to feedQuery only). The poster's own posts stay visible to
+them in My Posts regardless of age.
 
 Do not re-add a "Verified worker" badge that is not backed by real data. One
 used to be hardcoded on the worker board and shown to every user, which claimed a
