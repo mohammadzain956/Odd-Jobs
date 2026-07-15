@@ -30,6 +30,10 @@ export function matchesFilters(job: Job, category: string, query: string, city: 
   return `${job.title} ${job.details} ${job.category} ${job.location} ${job.city}`.toLowerCase().includes(trimmed);
 }
 
+// OPEN jobs older than this stop appearing in the public feed. Nobody is coming
+// to do a job posted a month ago, and dead posts make the feed look abandoned.
+const STALE_OPEN_DAYS = 30;
+
 // Loads the newest slice of the public feed plus everything the signed-in user
 // is involved in, so their own posts and accepted jobs are always present even
 // once the feed grows past the page limit.
@@ -37,9 +41,15 @@ export async function loadJobs(): Promise<Job[]> {
   if (!supabase) {
     return loadLocalJobs();
   }
+  // Stale OPEN posts drop out of the general feed only. The mineQuery below is
+  // unfiltered, so a poster still sees their own old posts in My Posts and can
+  // edit, delete, or repost them. Accepted/in-progress/completed jobs are kept
+  // regardless of age - they are live work or history, not stale offers.
+  const staleCutoff = new Date(Date.now() - STALE_OPEN_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const feedQuery = supabase
     .from('jobs')
     .select('*')
+    .or(`status.neq.OPEN,created_at.gte.${staleCutoff}`)
     .order('created_at', { ascending: false })
     .limit(100);
 
